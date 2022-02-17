@@ -2,3 +2,4 @@ Cargo.lock
 target
 #compiled shaders
 **.spv
+.cargo

@@ -41,8 +41,39 @@ fn create_index_buffer(device: &ash::Device) {
     
 }
 
-fn create_buffer() {
-    
+unsafe fn create_buffer(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
+                        size: vk::DeviceSize, usage: vk::BufferUsageFlags, properties: vk::MemoryPropertyFlags) 
+                        -> (vk::Buffer, vk::DeviceMemory, vk::MemoryRequirements) {
+    let buffer_info = vk::BufferCreateInfo::builder()
+        .size(size)
+        .usage(usage)
+        .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+    let buffer = device.create_buffer(&buffer_info, None).unwrap();
+    let memory_req = device.get_buffer_memory_requirements(buffer);
+
+    let memory_index = find_memorytype_index(&memory_req, &device_memory_properties, properties)
+        .expect("unable to find suitable memorytype for buffer.");
+
+    let allocation_info = vk::MemoryAllocateInfo {
+        allocation_size: memory_req.size,
+        memory_type_index: memory_index,
+        ..Default::default()
+    };
+
+    let memory = device.allocate_memory(&allocation_info, None).unwrap();
+    // let mapped_memory_pointer = device.map_memory(memory, 0, memory_req.size, vk::MemoryMapFlags::empty()).unwrap();
+
+    device.bind_buffer_memory(buffer, memory, 0).unwrap();
+
+    return (buffer, memory, memory_req)
+}
+
+unsafe fn fill_buffer<T: std::marker::Copy>(device: &ash::Device, buffer_memory: vk::DeviceMemory, buffer_memory_req: &vk::MemoryRequirements, content: &[T]) {
+    let pointer = device.map_memory(buffer_memory, 0, buffer_memory_req.size, vk::MemoryMapFlags::empty()).unwrap();
+    let mut align = Align::new(pointer, align_of::<Vertex>() as u64, buffer_memory_req.size);
+    align.copy_from_slice(&content);
+    device.unmap_memory(buffer_memory);
 }
 
 unsafe fn create_uniform_buffers(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties) {
@@ -61,7 +92,7 @@ unsafe fn create_uniform_buffers(device: &ash::Device, device_memory_properties:
         &device_memory_properties,
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
     )
-    .expect("Unable to find suitable memorytype for the index buffer.");
+    .expect("Unable to find suitable memorytype for the uniform buffer.");
 
     let uniform_allocate_info = vk::MemoryAllocateInfo {
         allocation_size: uniform_buffer_memory_req.size,
@@ -151,67 +182,17 @@ fn main() {
             })
             .collect();
 
+        // +++++++++++++++
         let index_buffer_data = [0u32, 1, 5, 3, 4, 2];
-        let index_buffer_info = vk::BufferCreateInfo::builder()
-            .size(std::mem::size_of_val(&index_buffer_data) as u64)
-            .usage(vk::BufferUsageFlags::INDEX_BUFFER)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-        let index_buffer = base.device.create_buffer(&index_buffer_info, None).unwrap();
-        let index_buffer_memory_req = base.device.get_buffer_memory_requirements(index_buffer);
-        let index_buffer_memory_index = find_memorytype_index(
-            &index_buffer_memory_req,
+        let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
+            &base.device,
             &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("Unable to find suitable memorytype for the index buffer.");
+            (index_buffer_data.len() * std::mem::size_of::<u32>()) as u64,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        let index_allocate_info = vk::MemoryAllocateInfo {
-            allocation_size: index_buffer_memory_req.size,
-            memory_type_index: index_buffer_memory_index,
-            ..Default::default()
-        };
-        let index_buffer_memory = base.device.allocate_memory(&index_allocate_info, None).unwrap();
-        let index_ptr = base
-            .device
-            .map_memory(
-                index_buffer_memory,
-                0,
-                index_buffer_memory_req.size,
-                vk::MemoryMapFlags::empty(),
-            )
-            .unwrap();
-        let mut index_slice = Align::new(index_ptr, align_of::<u32>() as u64, index_buffer_memory_req.size,);
-        index_slice.copy_from_slice(&index_buffer_data);
-        base.device.unmap_memory(index_buffer_memory);
-        base.device.bind_buffer_memory(index_buffer, index_buffer_memory, 0).unwrap();
-
-        let vertex_input_buffer_info = vk::BufferCreateInfo {
-            size: 12 * std::mem::size_of::<Vertex>() as u64,
-            usage: vk::BufferUsageFlags::VERTEX_BUFFER,
-            sharing_mode: vk::SharingMode::EXCLUSIVE,
-            ..Default::default()
-        };
-
-        let vertex_input_buffer = base.device.create_buffer(&vertex_input_buffer_info, None).unwrap();
-
-        let vertex_input_buffer_memory_req = base.device.get_buffer_memory_requirements(vertex_input_buffer);
-
-        let vertex_input_buffer_memory_index = find_memorytype_index(
-            &vertex_input_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("Unable to find suitable memorytype for the vertex buffer.");
-
-        let vertex_buffer_allocate_info = vk::MemoryAllocateInfo {
-            allocation_size: vertex_input_buffer_memory_req.size,
-            memory_type_index: vertex_input_buffer_memory_index,
-            ..Default::default()
-        };
-
-        let vertex_input_buffer_memory = base.device.allocate_memory(&vertex_buffer_allocate_info, None).unwrap();
-
+        fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, &index_buffer_data);
+        // +++++++++++++++
         let vertices = [
             Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
@@ -239,26 +220,15 @@ fn main() {
                 color: [1.0, 0.0, 0.0, 1.0],
             },
         ];
-        println!("{}", vertex_input_buffer_memory_req.size);
+        let (vertex_input_buffer, vertex_input_buffer_memory, vertex_buffer_memory_req) = create_buffer(
+                &base.device,
+                &base.device_memory_properties,
+                (vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
+                vk::BufferUsageFlags::VERTEX_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        let vert_ptr = base
-            .device
-            .map_memory(
-                vertex_input_buffer_memory,
-                0,
-                vertex_input_buffer_memory_req.size,
-                vk::MemoryMapFlags::empty(),
-            )
-            .unwrap();
-
-        let mut vert_align = Align::new(
-            vert_ptr,
-            align_of::<Vertex>() as u64,
-            vertex_input_buffer_memory_req.size,
-        );
-        vert_align.copy_from_slice(&vertices);
-        base.device.unmap_memory(vertex_input_buffer_memory);
-        base.device.bind_buffer_memory(vertex_input_buffer, vertex_input_buffer_memory, 0).unwrap();
+        fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, &vertices);
+        // ++++++++++++++
 
         let mut vertex_spv_file = Cursor::new(&include_bytes!("./shaders/vert.spv")[..]);
         let mut frag_spv_file = Cursor::new(&include_bytes!("./shaders/frag.spv")[..]);
