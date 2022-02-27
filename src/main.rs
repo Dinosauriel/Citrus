@@ -14,6 +14,8 @@ struct Vertex {
     color: [f32; 4],
 }
 
+#[derive(Clone, Debug, Copy)]
+#[allow(dead_code)]
 struct UniformBufferObject {
     model: Mat4,
     view: Mat4,
@@ -28,17 +30,73 @@ unsafe fn get_shader_module(spv_file: &mut Cursor<&[u8]>, device: &ash::Device) 
     return shader_module;
 }
 
-fn create_descriptor_set_layout() {
+unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::DescriptorSetLayout {
     let ubo_layout_binding = vk::DescriptorSetLayoutBinding {
         binding: 0,
+        descriptor_count: 1,
         descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+        stage_flags: vk::ShaderStageFlags::VERTEX,
+        ..Default::default()
+    };
+
+    let layout_info = vk::DescriptorSetLayoutCreateInfo {
+        binding_count: 1,
+        p_bindings: &ubo_layout_binding,
+        ..Default::default()
+    };
+
+    let descriptor_set_layout = device.create_descriptor_set_layout(&layout_info, None).unwrap();
+    return descriptor_set_layout;
+}
+
+unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
+    let pool_size = vk::DescriptorPoolSize {
+        ty: vk::DescriptorType::UNIFORM_BUFFER,
         descriptor_count: 1,
         ..Default::default()
     };
+
+    let pool_info = vk::DescriptorPoolCreateInfo {
+        pool_size_count: 1,
+        p_pool_sizes: &pool_size,
+        max_sets: 1,
+        ..Default::default()
+    };
+
+    let descriptor_pool = device.create_descriptor_pool(&pool_info, None).unwrap();
+    return descriptor_pool;
 }
 
-fn create_index_buffer(device: &ash::Device) {
-    
+unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, uni_buffer: vk::Buffer, buffer_size: u64) -> Vec<vk::DescriptorSet> {
+    let alloc_info = vk::DescriptorSetAllocateInfo {
+        descriptor_pool: pool,
+        descriptor_set_count: 1,
+        p_set_layouts: &layout,
+        ..Default::default()
+    };
+
+    let descriptor_sets = device.allocate_descriptor_sets(&alloc_info).unwrap();
+
+    let buffer_info = vk::DescriptorBufferInfo {
+        buffer: uni_buffer,
+        offset: 0,
+        range: buffer_size,
+        ..Default::default()
+    };
+
+    let descriptor_write = vk::WriteDescriptorSet {
+        dst_set: descriptor_sets[0],
+        dst_binding: 0,
+        dst_array_element: 0,
+        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+        descriptor_count: 1,
+        p_buffer_info: &buffer_info,
+        ..Default::default()
+    };
+
+    device.update_descriptor_sets(&[descriptor_write], &[]);
+
+    return descriptor_sets;
 }
 
 unsafe fn create_buffer(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
@@ -71,47 +129,9 @@ unsafe fn create_buffer(device: &ash::Device, device_memory_properties: &vk::Phy
 
 unsafe fn fill_buffer<T: std::marker::Copy>(device: &ash::Device, buffer_memory: vk::DeviceMemory, buffer_memory_req: &vk::MemoryRequirements, content: &[T]) {
     let pointer = device.map_memory(buffer_memory, 0, buffer_memory_req.size, vk::MemoryMapFlags::empty()).unwrap();
-    let mut align = Align::new(pointer, align_of::<Vertex>() as u64, buffer_memory_req.size);
+    let mut align = Align::new(pointer, align_of::<T>() as u64, buffer_memory_req.size);
     align.copy_from_slice(&content);
     device.unmap_memory(buffer_memory);
-}
-
-unsafe fn create_uniform_buffers(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties) {
-    let buffer_size= mem::size_of::<UniformBufferObject>() as vk::DeviceSize;
-
-    let uniform_buffer_info = vk::BufferCreateInfo::builder()
-        .size(buffer_size)
-        .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
-        .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-    let uniform_buffer = device.create_buffer(&uniform_buffer_info, None).unwrap();
-    let uniform_buffer_memory_req = device.get_buffer_memory_requirements(uniform_buffer);
-
-    let uniform_buffer_memory_index = find_memorytype_index(
-        &uniform_buffer_memory_req,
-        &device_memory_properties,
-        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-    )
-    .expect("Unable to find suitable memorytype for the uniform buffer.");
-
-    let uniform_allocate_info = vk::MemoryAllocateInfo {
-        allocation_size: uniform_buffer_memory_req.size,
-        memory_type_index: uniform_buffer_memory_index,
-        ..Default::default()
-    };
-    let uniform_buffer_memory = device.allocate_memory(&uniform_allocate_info, None).unwrap();
-    let uniform_ptr = device
-        .map_memory(
-            uniform_buffer_memory,
-            0,
-            uniform_buffer_memory_req.size,
-            vk::MemoryMapFlags::empty(),
-        )
-        .unwrap();
-    let mut uniform_slice = Align::<UniformBufferObject>::new(uniform_ptr, align_of::<UniformBufferObject>() as u64, uniform_buffer_memory_req.size,);
-    // uniform_slice.copy_from_slice(&uniform_buffer_data);
-    device.unmap_memory(uniform_buffer_memory);
-    device.bind_buffer_memory(uniform_buffer, uniform_buffer_memory, 0).unwrap();
 }
 
 fn main() {
@@ -164,9 +184,7 @@ fn main() {
 
         let renderpass = base.device.create_render_pass(&renderpass_create_info, None).unwrap();
 
-        let framebuffers: Vec<vk::Framebuffer> = base
-            .present_image_views
-            .iter()
+        let framebuffers: Vec<vk::Framebuffer> = base.present_image_views.iter()
             .map(|&present_image_view| {
                 let framebuffer_attachments = [present_image_view, base.depth_image_view];
                 let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
@@ -176,9 +194,7 @@ fn main() {
                     .height(base.surface_resolution.height)
                     .layers(1);
 
-                base.device
-                    .create_framebuffer(&frame_buffer_create_info, None)
-                    .unwrap()
+                base.device.create_framebuffer(&frame_buffer_create_info, None).unwrap()
             })
             .collect();
 
@@ -229,13 +245,34 @@ fn main() {
 
         fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, &vertices);
         // ++++++++++++++
+        let matrices = UniformBufferObject {
+            model: Mat4::IDENTITY,
+            view: Mat4::IDENTITY,
+            proj: Mat4::IDENTITY
+        };
+        let (matrix_buffer, matrix_buffer_memory, matrix_buffer_memory_req) = create_buffer(
+            &base.device,
+            &base.device_memory_properties,
+            std::mem::size_of::<UniformBufferObject>() as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        fill_buffer(&base.device, matrix_buffer_memory, &matrix_buffer_memory_req, &[matrices]);
+        // ++++++++++++++
 
         let mut vertex_spv_file = Cursor::new(&include_bytes!("./shaders/vert.spv")[..]);
         let mut frag_spv_file = Cursor::new(&include_bytes!("./shaders/frag.spv")[..]);
         let vertex_shader_module = get_shader_module(&mut vertex_spv_file, &base.device);
         let fragment_shader_module = get_shader_module(&mut frag_spv_file, &base.device);
 
-        let layout_create_info = vk::PipelineLayoutCreateInfo::default();
+
+        let descriptor_pool = create_descriptor_pool(&base.device);
+        let descriptor_set_layout = create_descriptor_set_layout(&base.device);
+        let descriptor_sets = create_descriptor_sets(&base.device, descriptor_pool, descriptor_set_layout, matrix_buffer, mem::size_of::<UniformBufferObject>() as u64);
+        let layout_create_info = vk::PipelineLayoutCreateInfo {
+            set_layout_count: 1,
+            p_set_layouts: &descriptor_set_layout,
+            ..Default::default()
+        };
         let pipeline_layout = base.device.create_pipeline_layout(&layout_create_info, None).unwrap();
 
         let shader_entry_name = CStr::from_bytes_with_nul_unchecked(b"main\0");
@@ -300,6 +337,7 @@ fn main() {
             front_face: vk::FrontFace::COUNTER_CLOCKWISE,
             line_width: 1.0,
             polygon_mode: vk::PolygonMode::FILL,
+            cull_mode: vk::CullModeFlags::BACK,
             ..Default::default()
         };
         let multisample_state_info = vk::PipelineMultisampleStateCreateInfo {
@@ -353,8 +391,7 @@ fn main() {
             .layout(pipeline_layout)
             .render_pass(renderpass);
 
-        let graphics_pipelines = base
-            .device
+        let graphics_pipelines = base.device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
                 &[graphic_pipeline_info.build()],
@@ -420,6 +457,7 @@ fn main() {
                     device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_input_buffer], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, index_buffer, 0, vk::IndexType::UINT32);
+                    device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
                     device.cmd_draw_indexed(draw_command_buffer, index_buffer_data.len() as u32, 1, 0, 0, 1);
                     // Or draw without the index buffer
                     // device.cmd_draw(draw_command_buffer, 3, 1, 0, 0);
@@ -442,6 +480,8 @@ fn main() {
         for pipeline in graphics_pipelines {
             base.device.destroy_pipeline(pipeline, None);
         }
+        base.device.destroy_descriptor_set_layout(descriptor_set_layout, None);
+        base.device.destroy_descriptor_pool(descriptor_pool, None);
         base.device.destroy_pipeline_layout(pipeline_layout, None);
         base.device.destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(fragment_shader_module, None);
@@ -449,6 +489,8 @@ fn main() {
         base.device.destroy_buffer(index_buffer, None);
         base.device.free_memory(vertex_input_buffer_memory, None);
         base.device.destroy_buffer(vertex_input_buffer, None);
+        base.device.free_memory(matrix_buffer_memory, None);
+        base.device.destroy_buffer(matrix_buffer, None);
         for framebuffer in framebuffers {
             base.device.destroy_framebuffer(framebuffer, None);
         }
