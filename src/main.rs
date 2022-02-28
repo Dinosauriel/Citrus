@@ -7,6 +7,7 @@ use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 use std::mem::align_of;
+use std::time;
 
 #[derive(Clone, Debug, Copy)]
 struct Vertex {
@@ -134,6 +135,15 @@ unsafe fn fill_buffer<T: std::marker::Copy>(device: &ash::Device, buffer_memory:
     device.unmap_memory(buffer_memory);
 }
 
+unsafe fn get_proj_matrices(t: time::Duration) -> UniformBufferObject {
+    let matrices = UniformBufferObject {
+        model: Mat4::from_rotation_z(0.5 * t.as_secs_f32()),
+        view: Mat4::IDENTITY,
+        proj: Mat4::IDENTITY
+    };
+    return matrices;
+}
+
 fn main() {
     unsafe {
         let base = ExampleBase::new(1920, 1080);
@@ -246,7 +256,7 @@ fn main() {
         fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, &vertices);
         // ++++++++++++++
         let matrices = UniformBufferObject {
-            model: Mat4::IDENTITY,
+            model: Mat4::from_rotation_z(0.5),
             view: Mat4::IDENTITY,
             proj: Mat4::IDENTITY
         };
@@ -401,7 +411,11 @@ fn main() {
 
         let graphic_pipeline = graphics_pipelines[0];
 
+        let start_time = time::Instant::now();
         base.render_loop(|| {
+            let projection_matrices = get_proj_matrices(start_time.elapsed());
+            fill_buffer(&base.device, matrix_buffer_memory, &matrix_buffer_memory_req, &[projection_matrices]);
+
             let (present_index, _) = base
                 .swapchain_loader
                 .acquire_next_image(
