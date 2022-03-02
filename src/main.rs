@@ -8,6 +8,7 @@ use std::io::Cursor;
 use std::mem;
 use std::mem::align_of;
 use std::time;
+use glfw::{Action, Context, Key};
 
 #[derive(Clone, Debug, Copy)]
 struct Vertex {
@@ -135,18 +136,21 @@ unsafe fn fill_buffer<T: std::marker::Copy>(device: &ash::Device, buffer_memory:
     device.unmap_memory(buffer_memory);
 }
 
-unsafe fn get_proj_matrices(t: time::Duration) -> UniformBufferObject {
+unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
+    let view = Mat4::look_at_rh(cam.position, cam.position + cam.direction, camera::UP);
+    let proj = Mat4::perspective_rh(cam.fieldOfView, 1920. / 1080., 0.1, 100.);
+
     let matrices = UniformBufferObject {
-        model: Mat4::from_rotation_z(0.5 * t.as_secs_f32()),
-        view: Mat4::IDENTITY,
-        proj: Mat4::IDENTITY
+        model: Mat4::IDENTITY,
+        view: view,
+        proj: proj
     };
     return matrices;
 }
 
 fn main() {
     unsafe {
-        let base = ExampleBase::new(1920, 1080);
+        let mut base = ExampleBase::new(1920, 1080);
         let renderpass_attachments = [
             vk::AttachmentDescription {
                 format: base.surface_format.format,
@@ -207,6 +211,8 @@ fn main() {
                 base.device.create_framebuffer(&frame_buffer_create_info, None).unwrap()
             })
             .collect();
+
+        let mut cam: camera::Camera = Default::default();
 
         // +++++++++++++++
         let index_buffer_data = [0u32, 1, 5, 3, 4, 2];
@@ -412,8 +418,11 @@ fn main() {
         let graphic_pipeline = graphics_pipelines[0];
 
         let start_time = time::Instant::now();
-        base.render_loop(|| {
-            let projection_matrices = get_proj_matrices(start_time.elapsed());
+
+        while !base.window.should_close() {
+            base.window.swap_buffers();
+
+            let projection_matrices = get_proj_matrices(&cam);
             fill_buffer(&base.device, matrix_buffer_memory, &matrix_buffer_memory_req, &[projection_matrices]);
 
             let (present_index, _) = base
@@ -488,7 +497,37 @@ fn main() {
                 .image_indices(&image_indices);
 
             base.swapchain_loader.queue_present(base.present_queue, &present_info).unwrap();
-        });
+
+            for (_, event) in glfw::flush_messages(&base.events) {
+                println!("{:?}", event);
+                match event {
+                    glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
+                        base.window.set_should_close(true)
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Press, _) => {
+                        cam.position += 0.1 * camera::UP;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::Space, _, glfw::Action::Press, _) => {
+                        cam.position -= 0.1 * camera::UP;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::W, _, glfw::Action::Press, _) => {
+                        cam.position += 0.1 * cam.direction;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::A, _, glfw::Action::Press, _) => {
+                        cam.position -= 0.1 * cam.direction.cross(camera::UP);
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::S, _, glfw::Action::Press, _) => {
+                        cam.position -= 0.1 * cam.direction;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Press, _) => {
+                        cam.position += 0.1 * cam.direction.cross(camera::UP);
+                    },
+                    _ => {},
+                }
+            }
+            // println!("{:?}", cam.position);
+            base.glfw.poll_events();
+        }
 
         base.device.device_wait_idle().unwrap();
         for pipeline in graphics_pipelines {

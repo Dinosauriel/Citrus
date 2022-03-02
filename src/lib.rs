@@ -1,5 +1,4 @@
 extern crate ash;
-extern crate winit;
 
 use ash::extensions::{
     ext::DebugUtils,
@@ -9,18 +8,14 @@ use ash::extensions::{
 use ash::{vk, Entry};
 pub use ash::{Device, Instance};
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::default::Default;
 use std::ffi::CStr;
 use std::ops::Drop;
 use std::os::raw::c_char;
 
-use winit::{
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    platform::run_return::EventLoopExtRunReturn,
-    window::WindowBuilder,
-};
+use glfw::{Context};
+
+pub mod camera;
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]
@@ -37,7 +32,7 @@ macro_rules! offset_of {
 /// is executed. That way we can delay the waiting for the fences by 1 frame which is good for performance.
 /// Make sure to create the fence in a signaled state on the first use.
 #[allow(clippy::too_many_arguments)]
-pub fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
+pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
     device: &Device,
     command_buffer: vk::CommandBuffer,
     command_buffer_reuse_fence: vk::Fence,
@@ -47,49 +42,47 @@ pub fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
     signal_semaphores: &[vk::Semaphore],
     f: F,
 ) {
-    unsafe {
-        device
-            .wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX)
-            .expect("Wait for fence failed.");
+    device
+        .wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX)
+        .expect("Wait for fence failed.");
 
-        device
-            .reset_fences(&[command_buffer_reuse_fence])
-            .expect("Reset fences failed.");
+    device
+        .reset_fences(&[command_buffer_reuse_fence])
+        .expect("Reset fences failed.");
 
-        device
-            .reset_command_buffer(
-                command_buffer,
-                vk::CommandBufferResetFlags::RELEASE_RESOURCES,
-            )
-            .expect("Reset command buffer failed.");
+    device
+        .reset_command_buffer(
+            command_buffer,
+            vk::CommandBufferResetFlags::RELEASE_RESOURCES,
+        )
+        .expect("Reset command buffer failed.");
 
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+    let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+        .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-        device
-            .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-            .expect("Begin commandbuffer");
-        f(device, command_buffer);
-        device
-            .end_command_buffer(command_buffer)
-            .expect("End commandbuffer");
+    device
+        .begin_command_buffer(command_buffer, &command_buffer_begin_info)
+        .expect("Begin commandbuffer");
+    f(device, command_buffer);
+    device
+        .end_command_buffer(command_buffer)
+        .expect("End commandbuffer");
 
-        let command_buffers = vec![command_buffer];
+    let command_buffers = vec![command_buffer];
 
-        let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(wait_semaphores)
-            .wait_dst_stage_mask(wait_mask)
-            .command_buffers(&command_buffers)
-            .signal_semaphores(signal_semaphores);
+    let submit_info = vk::SubmitInfo::builder()
+        .wait_semaphores(wait_semaphores)
+        .wait_dst_stage_mask(wait_mask)
+        .command_buffers(&command_buffers)
+        .signal_semaphores(signal_semaphores);
 
-        device
-            .queue_submit(
-                submit_queue,
-                &[submit_info.build()],
-                command_buffer_reuse_fence,
-            )
-            .expect("queue submit failed.");
-    }
+    device
+        .queue_submit(
+            submit_queue,
+            &[submit_info.build()],
+            command_buffer_reuse_fence,
+        )
+        .expect("queue submit failed.");
 }
 
 unsafe extern "system" fn vulkan_debug_callback(
@@ -141,14 +134,16 @@ pub fn find_memorytype_index(
 }
 
 pub struct ExampleBase {
+    pub glfw: glfw::Glfw,
+    pub window: glfw::Window,
+    pub events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
+
     pub entry: Entry,
     pub instance: Instance,
     pub device: Device,
     pub surface_loader: Surface,
     pub swapchain_loader: Swapchain,
     pub debug_utils_loader: DebugUtils,
-    pub window: winit::window::Window,
-    pub event_loop: RefCell<EventLoop<()>>,
     pub debug_call_back: vk::DebugUtilsMessengerEXT,
 
     pub pdevice: vk::PhysicalDevice,
@@ -180,42 +175,18 @@ pub struct ExampleBase {
 }
 
 impl ExampleBase {
-    pub fn render_loop<F: Fn()>(&self, f: F) {
-        self.event_loop
-            .borrow_mut()
-            .run_return(|event, _, control_flow| {
-                *control_flow = ControlFlow::Poll;
-                match event {
-                    Event::WindowEvent {
-                        event:
-                            WindowEvent::CloseRequested
-                            | WindowEvent::KeyboardInput {
-                                input:
-                                    KeyboardInput {
-                                        state: ElementState::Pressed,
-                                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                                        ..
-                                    },
-                                ..
-                            },
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    Event::MainEventsCleared => f(),
-                    _ => (),
-                }
-            });
-    }
-
     pub unsafe fn new(window_width: u32, window_height: u32) -> Self {
-        let event_loop = EventLoop::new();
-        let window = WindowBuilder::new()
-            .with_title("Ash - Example")
-            .with_inner_size(winit::dpi::LogicalSize::new(
-                f64::from(window_width),
-                f64::from(window_height),
-            ))
-            .build(&event_loop)
-            .unwrap();
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        // glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
+
+        let (mut window, events) = glfw.create_window(window_width, window_height, "Ash - Example", glfw::WindowMode::Windowed)
+            .expect("failed to create glfw window");
+
+        window.make_current();
+        window.set_key_polling(true);
+        window.set_cursor_mode(glfw::CursorMode::Disabled);
+        window.set_cursor_pos_polling(true);
+
         let entry = Entry::linked();
         let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
 
@@ -228,10 +199,7 @@ impl ExampleBase {
             .collect();
 
         let surface_extensions = ash_window::enumerate_required_extensions(&window).unwrap();
-        let mut extension_names_raw = surface_extensions
-            .iter()
-            .map(|ext| ext.as_ptr())
-            .collect::<Vec<_>>();
+        let mut extension_names_raw = surface_extensions.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
         extension_names_raw.push(DebugUtils::name().as_ptr());
 
         let appinfo = vk::ApplicationInfo::builder()
@@ -522,20 +490,19 @@ impl ExampleBase {
 
         let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
-        let present_complete_semaphore = device
-            .create_semaphore(&semaphore_create_info, None)
-            .unwrap();
+        let present_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
         let rendering_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
 
         ExampleBase {
-            event_loop: RefCell::new(event_loop),
+            glfw,
+            window,
+            events,
             entry,
             instance,
             device,
             queue_family_index,
             pdevice,
             device_memory_properties,
-            window,
             surface_loader,
             surface_format,
             present_queue,
@@ -565,14 +532,10 @@ impl Drop for ExampleBase {
     fn drop(&mut self) {
         unsafe {
             self.device.device_wait_idle().unwrap();
-            self.device
-                .destroy_semaphore(self.present_complete_semaphore, None);
-            self.device
-                .destroy_semaphore(self.rendering_complete_semaphore, None);
-            self.device
-                .destroy_fence(self.draw_commands_reuse_fence, None);
-            self.device
-                .destroy_fence(self.setup_commands_reuse_fence, None);
+            self.device.destroy_semaphore(self.present_complete_semaphore, None);
+            self.device.destroy_semaphore(self.rendering_complete_semaphore, None);
+            self.device.destroy_fence(self.draw_commands_reuse_fence, None);
+            self.device.destroy_fence(self.setup_commands_reuse_fence, None);
             self.device.free_memory(self.depth_image_memory, None);
             self.device.destroy_image_view(self.depth_image_view, None);
             self.device.destroy_image(self.depth_image, None);
