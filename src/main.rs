@@ -1,6 +1,6 @@
 use ash::util::*;
 use ash::vk;
-use glam::Mat4;
+use glam::{Mat4, Vec3};
 use citrus::*;
 use std::default::Default;
 use std::ffi::CStr;
@@ -138,10 +138,10 @@ unsafe fn fill_buffer<T: std::marker::Copy>(device: &ash::Device, buffer_memory:
 
 unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
     let view = Mat4::look_at_rh(cam.position, cam.position + cam.direction, camera::UP);
-    let proj = Mat4::perspective_rh(cam.fieldOfView, 1920. / 1080., 0.1, 100.);
+    let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 100.);
 
     let matrices = UniformBufferObject {
-        model: Mat4::IDENTITY,
+        model: Mat4::from_rotation_x(0.),
         view: view,
         proj: proj
     };
@@ -419,6 +419,9 @@ fn main() {
 
         let start_time = time::Instant::now();
 
+        let mut mouse_x: f32 = 0.;
+        let mut mouse_y: f32 = 0.;
+
         while !base.window.should_close() {
             base.window.swap_buffers();
 
@@ -504,24 +507,35 @@ fn main() {
                     glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                         base.window.set_should_close(true)
                     },
-                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Press, _) => {
-                        cam.position += 0.1 * camera::UP;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::Space, _, glfw::Action::Press, _) => {
+                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _,_, _) => {
                         cam.position -= 0.1 * camera::UP;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::W, _, glfw::Action::Press, _) => {
+                    glfw::WindowEvent::Key(glfw::Key::Space, _, _, _) => {
+                        cam.position += 0.1 * camera::UP;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::W, _, _, _) => {
                         cam.position += 0.1 * cam.direction;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::A, _, glfw::Action::Press, _) => {
-                        cam.position -= 0.1 * cam.direction.cross(camera::UP);
+                    glfw::WindowEvent::Key(glfw::Key::A, _, _, _) => {
+                        cam.position += 0.1 * cam.direction.cross(camera::UP).normalize();
                     },
-                    glfw::WindowEvent::Key(glfw::Key::S, _, glfw::Action::Press, _) => {
+                    glfw::WindowEvent::Key(glfw::Key::S, _, _, _) => {
                         cam.position -= 0.1 * cam.direction;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Press, _) => {
-                        cam.position += 0.1 * cam.direction.cross(camera::UP);
+                    glfw::WindowEvent::Key(glfw::Key::D, _, _, _) => {
+                        cam.position -= 0.1 * cam.direction.cross(camera::UP).normalize();
                     },
+                    glfw::WindowEvent::CursorPos(x, y) => {
+                        let delta_x = mouse_x - x as f32;
+                        let delta_y = mouse_y - y as f32;
+                        mouse_x = x as f32;
+                        mouse_y = y as f32;
+
+                        let new_yaw   = cam.yaw + 0.01 * delta_x;
+                        let new_pitch = cam.pitch + 0.01 * delta_y;
+
+                        cam = cam.set_pitch_and_yaw(&new_pitch, &new_yaw);
+                    }
                     _ => {},
                 }
             }

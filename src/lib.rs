@@ -176,7 +176,7 @@ pub struct ExampleBase {
 
 impl ExampleBase {
     pub unsafe fn new(window_width: u32, window_height: u32) -> Self {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         // glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
 
         let (mut window, events) = glfw.create_window(window_width, window_height, "Ash - Example", glfw::WindowMode::Windowed)
