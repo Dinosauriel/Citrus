@@ -15,6 +15,7 @@ use std::os::raw::c_char;
 
 use glfw::{Context};
 
+pub mod controls;
 pub mod camera;
 
 // Simple offset_of macro akin to C++ offsetof

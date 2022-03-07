@@ -9,6 +9,8 @@ use std::mem;
 use std::mem::align_of;
 use std::time;
 use glfw::{Action, Context, Key};
+use noise::{NoiseFn, Perlin};
+use controls::InputState;
 
 #[derive(Clone, Debug, Copy)]
 struct Vertex {
@@ -148,6 +150,10 @@ unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
     return matrices;
 }
 
+fn y_x_to_i(y: u64, x: u64, width: u64) -> u64 {
+    return y * width + x;
+}
+
 fn main() {
     unsafe {
         let mut base = ExampleBase::new(1920, 1080);
@@ -213,9 +219,28 @@ fn main() {
             .collect();
 
         let mut cam: camera::Camera = Default::default();
+        let mut input_state: InputState = Default::default();
 
         // +++++++++++++++
-        let index_buffer_data = [0u32, 1, 5, 3, 4, 2];
+        const MAP_SIZE: usize = 64;
+        let mut index_buffer_data = [0u32; 6 * (MAP_SIZE - 1) * (MAP_SIZE - 1)];
+        for i in 0 .. MAP_SIZE - 1 {
+            for j in 0 .. MAP_SIZE - 1 {
+                let tl = y_x_to_i(i as u64, j as u64, MAP_SIZE as u64) as u32;
+                let bl = y_x_to_i((i + 1) as u64, j as u64, MAP_SIZE as u64) as u32;
+                let tr = y_x_to_i(i as u64, (j + 1) as u64, MAP_SIZE as u64) as u32;
+                let br = y_x_to_i((i + 1) as u64, (j + 1) as u64, MAP_SIZE as u64) as u32;
+
+                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 0] = tl;
+                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 1] = bl;
+                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 2] = tr;
+                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 3] = tr;
+                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 4] = bl;
+                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 5] = br;
+            }
+        }
+        // println!("{:?}", index_buffer_data);
+
         let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
             &base.device,
             &base.device_memory_properties,
@@ -225,33 +250,24 @@ fn main() {
 
         fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, &index_buffer_data);
         // +++++++++++++++
-        let vertices = [
-            Vertex {
-                pos: [-1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 1.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 0.0, 1.0, 1.0],
-            },
-            Vertex {
-                // X->, Y¦, Z
-                pos: [0.6, 0.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [0.5, -0.7, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [0.6, -0.8, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-            Vertex {
-                pos: [0.6, -0.7, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-            },
-        ];
+        let perlin = Perlin::new();
+        let mut vertices = [Vertex {
+            pos: [0.0, 0.0, 0.0, 0.0],
+            color: [0.0, 0.0, 0.0, 0.0],
+        }; MAP_SIZE * MAP_SIZE];
+        for i in 0 .. MAP_SIZE {
+            for j in 0 .. MAP_SIZE {
+                let y = 10. * perlin.get([(i as f64) / 100. + 0.1, (j as f64) / 100. + 0.1]);
+                println!("{:?}", y);
+                let v = Vertex {
+                    pos: [i as f32, y as f32, j as f32, 1.0],
+                    color: [0.0, 1.0, 0.0, 1.0],
+                };
+
+                vertices[MAP_SIZE * i + j] = v;
+            }
+        }
+
         let (vertex_input_buffer, vertex_input_buffer_memory, vertex_buffer_memory_req) = create_buffer(
                 &base.device,
                 &base.device_memory_properties,
@@ -352,7 +368,7 @@ fn main() {
         let rasterization_info = vk::PipelineRasterizationStateCreateInfo {
             front_face: vk::FrontFace::COUNTER_CLOCKWISE,
             line_width: 1.0,
-            polygon_mode: vk::PolygonMode::FILL,
+            polygon_mode: vk::PolygonMode::LINE,
             cull_mode: vk::CullModeFlags::BACK,
             ..Default::default()
         };
@@ -507,23 +523,41 @@ fn main() {
                     glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                         base.window.set_should_close(true)
                     },
-                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _,_, _) => {
-                        cam.position -= 0.1 * camera::UP;
+                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Press, _) => {
+                        input_state.l_ctrl = true;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::Space, _, _, _) => {
-                        cam.position += 0.1 * camera::UP;
+                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Release, _) => {
+                        input_state.l_ctrl = false;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::W, _, _, _) => {
-                        cam.position += 0.1 * cam.direction;
+                    glfw::WindowEvent::Key(glfw::Key::Space, _, glfw::Action::Press, _) => {
+                        input_state.space = true;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::A, _, _, _) => {
-                        cam.position += 0.1 * cam.direction.cross(camera::UP).normalize();
+                    glfw::WindowEvent::Key(glfw::Key::Space, _, glfw::Action::Release, _) => {
+                        input_state.space = false;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::S, _, _, _) => {
-                        cam.position -= 0.1 * cam.direction;
+                    glfw::WindowEvent::Key(glfw::Key::W, _, glfw::Action::Press, _) => {
+                        input_state.w = true;
                     },
-                    glfw::WindowEvent::Key(glfw::Key::D, _, _, _) => {
-                        cam.position -= 0.1 * cam.direction.cross(camera::UP).normalize();
+                    glfw::WindowEvent::Key(glfw::Key::W, _, glfw::Action::Release, _) => {
+                        input_state.w = false;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::A, _, glfw::Action::Press, _) => {
+                        input_state.a = true;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::A, _, glfw::Action::Release, _) => {
+                        input_state.a = false;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::S, _, glfw::Action::Press, _) => {
+                        input_state.s = true;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::S, _, glfw::Action::Release, _) => {
+                        input_state.s = false;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Press, _) => {
+                        input_state.d = true;
+                    },
+                    glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Release, _) => {
+                        input_state.d = false;
                     },
                     glfw::WindowEvent::CursorPos(x, y) => {
                         let delta_x = mouse_x - x as f32;
@@ -539,6 +573,26 @@ fn main() {
                     _ => {},
                 }
             }
+
+            if input_state.w {
+                cam.position += 0.1 * cam.direction;
+            }
+            if input_state.a {
+                cam.position += 0.1 * cam.direction.cross(camera::UP).normalize();
+            }
+            if input_state.s {
+                cam.position -= 0.1 * cam.direction;
+            }
+            if input_state.d {
+                cam.position -= 0.1 * cam.direction.cross(camera::UP).normalize();
+            }
+            if input_state.l_ctrl {
+                cam.position -= 0.1 * camera::UP;
+            }
+            if input_state.space {
+                cam.position += 0.1 * camera::UP;
+            }
+
             // println!("{:?}", cam.position);
             base.glfw.poll_events();
         }
