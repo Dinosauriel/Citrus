@@ -4,7 +4,6 @@ use ash::extensions::{
     ext::DebugUtils,
     khr::{Surface, Swapchain},
 };
-
 use ash::{vk, Entry};
 pub use ash::{Device, Instance};
 use std::borrow::Cow;
@@ -12,7 +11,6 @@ use std::default::Default;
 use std::ffi::CStr;
 use std::ops::Drop;
 use std::os::raw::c_char;
-
 use glfw::{Context};
 
 pub mod controls;
@@ -273,6 +271,7 @@ impl ExampleBase {
         let device_extension_names_raw = [Swapchain::name().as_ptr()];
         let features = vk::PhysicalDeviceFeatures {
             shader_clip_distance: 1,
+            fill_mode_non_solid: 1,
             ..Default::default()
         };
         let priorities = [1.0];

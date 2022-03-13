@@ -439,9 +439,6 @@ fn main() {
 
         let start_time = time::Instant::now();
 
-        let mut mouse_x: f32 = 0.;
-        let mut mouse_y: f32 = 0.;
-
         while !base.window.should_close() {
             base.window.swap_buffers();
 
@@ -522,80 +519,19 @@ fn main() {
             base.swapchain_loader.queue_present(base.present_queue, &present_info).unwrap();
 
             for (_, event) in glfw::flush_messages(&base.events) {
-                println!("{:?}", event);
+                // println!("{:?}", event);
+
+                input_state.update_from_event(&event);
+
                 match event {
                     glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                         base.window.set_should_close(true)
                     },
-                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Press, _) => {
-                        input_state.l_ctrl = true;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Release, _) => {
-                        input_state.l_ctrl = false;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::Space, _, glfw::Action::Press, _) => {
-                        input_state.space = true;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::Space, _, glfw::Action::Release, _) => {
-                        input_state.space = false;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::W, _, glfw::Action::Press, _) => {
-                        input_state.w = true;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::W, _, glfw::Action::Release, _) => {
-                        input_state.w = false;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::A, _, glfw::Action::Press, _) => {
-                        input_state.a = true;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::A, _, glfw::Action::Release, _) => {
-                        input_state.a = false;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::S, _, glfw::Action::Press, _) => {
-                        input_state.s = true;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::S, _, glfw::Action::Release, _) => {
-                        input_state.s = false;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Press, _) => {
-                        input_state.d = true;
-                    },
-                    glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Release, _) => {
-                        input_state.d = false;
-                    },
-                    glfw::WindowEvent::CursorPos(x, y) => {
-                        let delta_x = mouse_x - x as f32;
-                        let delta_y = mouse_y - y as f32;
-                        mouse_x = x as f32;
-                        mouse_y = y as f32;
-
-                        let new_yaw   = cam.yaw + 0.01 * delta_x;
-                        let new_pitch = cam.pitch + 0.01 * delta_y;
-
-                        cam = cam.set_pitch_and_yaw(&new_pitch, &new_yaw);
-                    }
                     _ => {},
                 }
             }
 
-            if input_state.w {
-                cam.position += 0.1 * cam.direction;
-            }
-            if input_state.a {
-                cam.position += 0.1 * cam.direction.cross(camera::UP).normalize();
-            }
-            if input_state.s {
-                cam.position -= 0.1 * cam.direction;
-            }
-            if input_state.d {
-                cam.position -= 0.1 * cam.direction.cross(camera::UP).normalize();
-            }
-            if input_state.l_ctrl {
-                cam.position -= 0.1 * camera::UP;
-            }
-            if input_state.space {
-                cam.position += 0.1 * camera::UP;
-            }
+            cam.update_from_input_state(&input_state);
 
             // println!("{:?}", cam.position);
             base.glfw.poll_events();
