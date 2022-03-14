@@ -11,10 +11,13 @@ use std::default::Default;
 use std::ffi::CStr;
 use std::ops::Drop;
 use std::os::raw::c_char;
-use glfw::{Context};
+use glfw::Context;
 
 pub mod controls;
 pub mod camera;
+pub mod graphics {
+    pub mod shader;
+}
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]

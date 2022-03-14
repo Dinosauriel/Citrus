@@ -1,16 +1,17 @@
 use ash::util::*;
 use ash::vk;
-use glam::{Mat4, Vec3};
+use glam::Mat4;
 use citrus::*;
 use std::default::Default;
 use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 use std::mem::align_of;
-use std::time;
-use glfw::{Action, Context, Key};
+// use std::time;
+use glfw::Context;
 use noise::{NoiseFn, Perlin};
 use controls::InputState;
+use graphics::shader::*;
 
 #[derive(Clone, Debug, Copy)]
 struct Vertex {
@@ -24,14 +25,6 @@ struct UniformBufferObject {
     model: Mat4,
     view: Mat4,
     proj: Mat4,
-}
-
-unsafe fn get_shader_module(spv_file: &mut Cursor<&[u8]>, device: &ash::Device) -> vk::ShaderModule {
-    let code = read_spv(spv_file).expect("failed to read shader spv file");
-    let shader_info = vk::ShaderModuleCreateInfo::builder().code(&code);
-
-    let shader_module = device.create_shader_module(&shader_info, None).expect("shader module error");
-    return shader_module;
 }
 
 unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::DescriptorSetLayout {
@@ -150,6 +143,7 @@ unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
     return matrices;
 }
 
+#[inline]
 fn y_x_to_i(y: u64, x: u64, width: u64) -> u64 {
     return y * width + x;
 }
@@ -437,7 +431,7 @@ fn main() {
 
         let graphic_pipeline = graphics_pipelines[0];
 
-        let start_time = time::Instant::now();
+        // let start_time = time::Instant::now();
 
         while !base.window.should_close() {
             base.window.swap_buffers();

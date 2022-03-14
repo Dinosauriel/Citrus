@@ -29,7 +29,7 @@ impl Camera {
 	}
 
 	pub fn update_from_input_state(&mut self, input_state: &controls::InputState) {
-		println!("direction: {}, pitch: {}, yaw: {}", self.direction, self.pitch, self.yaw);
+		// println!("direction: {}, pitch: {}, yaw: {}", self.direction, self.pitch, self.yaw);
 
 		if input_state.w {
 			self.position += 0.1 * self.direction;
