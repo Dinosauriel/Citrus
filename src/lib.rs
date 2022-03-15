@@ -18,6 +18,7 @@ pub mod camera;
 pub mod graphics {
     pub mod shader;
 }
+pub mod world;
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]

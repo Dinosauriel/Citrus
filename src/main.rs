@@ -9,15 +9,9 @@ use std::mem;
 use std::mem::align_of;
 // use std::time;
 use glfw::Context;
-use noise::{NoiseFn, Perlin};
 use controls::InputState;
 use graphics::shader::*;
-
-#[derive(Clone, Debug, Copy)]
-struct Vertex {
-    pos: [f32; 4],
-    color: [f32; 4],
-}
+use world;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
@@ -247,33 +241,17 @@ fn main() {
 
         fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, index_buffer_data.as_ref());
         // +++++++++++++++
-        let perlin = Perlin::new();
-        let mut vertices: Vec<Vertex> = Vec::with_capacity(MAP_SIZE * MAP_SIZE);
-        vertices.resize(MAP_SIZE * MAP_SIZE, Vertex{
-            pos: [0.0, 0.0, 0.0, 0.0],
-            color: [0.0, 1.0, 0.0, 1.0]
-        });
-        for i in 0 .. MAP_SIZE {
-            for j in 0 .. MAP_SIZE {
-                let y = 10. * perlin.get([(i as f64) / 100. + 0.1, (j as f64) / 100. + 0.1]);
-                // println!("{:?}", y);
-                let v = Vertex {
-                    pos: [i as f32, y as f32, j as f32, 1.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
-                };
 
-                vertices[MAP_SIZE * i + j] = v;
-            }
-        }
+        let world: world::World = Default::default();
 
         let (vertex_input_buffer, vertex_input_buffer_memory, vertex_buffer_memory_req) = create_buffer(
                 &base.device,
                 &base.device_memory_properties,
-                (vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
+                (world.vertices.len() * std::mem::size_of::<world::Vertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, &vertices);
+        fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, &world.vertices);
         // ++++++++++++++
         let matrices = UniformBufferObject {
             model: Mat4::from_rotation_z(0.5),
@@ -323,7 +301,7 @@ fn main() {
         ];
         let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
             binding: 0,
-            stride: mem::size_of::<Vertex>() as u32,
+            stride: mem::size_of::<world::Vertex>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }];
         let vertex_input_attribute_descriptions = [
@@ -331,13 +309,13 @@ fn main() {
                 location: 0,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, pos) as u32,
+                offset: offset_of!(world::Vertex, pos) as u32,
             },
             vk::VertexInputAttributeDescription {
                 location: 1,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
+                offset: offset_of!(world::Vertex, color) as u32,
             },
         ];
 
