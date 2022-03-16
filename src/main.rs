@@ -13,6 +13,7 @@ use controls::InputState;
 use graphics::shader::*;
 use world;
 use graphics::object::Vertex;
+use graphics::object::TriangleGraphicsObject;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
@@ -211,24 +212,24 @@ fn main() {
         let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
             &base.device,
             &base.device_memory_properties,
-            (world.indices.len() * std::mem::size_of::<u32>()) as u64,
+            (world.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, world.indices.as_ref());
+        fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, world.indices());
         // +++++++++++++++
 
         let (vertex_input_buffer, vertex_input_buffer_memory, vertex_buffer_memory_req) = create_buffer(
                 &base.device,
                 &base.device_memory_properties,
-                (world.vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
+                (world.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, &world.vertices);
+        fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, world.vertices());
         // ++++++++++++++
         let matrices = UniformBufferObject {
-            model: Mat4::from_rotation_z(0.5),
+            model: Mat4::IDENTITY,
             view: Mat4::IDENTITY,
             proj: Mat4::IDENTITY
         };
@@ -447,7 +448,7 @@ fn main() {
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_input_buffer], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, index_buffer, 0, vk::IndexType::UINT32);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
-                    device.cmd_draw_indexed(draw_command_buffer, world.indices.len() as u32, 1, 0, 0, 1);
+                    device.cmd_draw_indexed(draw_command_buffer, world.indices().len() as u32, 1, 0, 0, 1);
                     // Or draw without the index buffer
                     // device.cmd_draw(draw_command_buffer, 3, 1, 0, 0);
                     device.cmd_end_render_pass(draw_command_buffer);
@@ -458,7 +459,7 @@ fn main() {
             let swapchains = [base.swapchain];
             let image_indices = [present_index];
             let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
+                .wait_semaphores(&wait_semaphors)
                 .swapchains(&swapchains)
                 .image_indices(&image_indices);
 

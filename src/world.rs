@@ -1,10 +1,11 @@
 use noise::{NoiseFn, Perlin};
 use crate::graphics::object::Vertex;
+use crate::graphics::object::TriangleGraphicsObject;
 
 pub struct World {
     pub size: usize,
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
     noise: Perlin,
 }
 
@@ -31,12 +32,13 @@ impl World {
                 let tr = i       * self.size + j + 1;
                 let br = (i + 1) * self.size + j + 1;
 
-                self.indices[6 * (i * (self.size - 1) + j) + 0] = tl as u32;
-                self.indices[6 * (i * (self.size - 1) + j) + 1] = bl as u32;
-                self.indices[6 * (i * (self.size - 1) + j) + 2] = tr as u32;
-                self.indices[6 * (i * (self.size - 1) + j) + 3] = tr as u32;
-                self.indices[6 * (i * (self.size - 1) + j) + 4] = bl as u32;
-                self.indices[6 * (i * (self.size - 1) + j) + 5] = br as u32;
+                let k = 6 * (i * (self.size - 1) + j);
+                self.indices[k + 0] = tl as u32;
+                self.indices[k + 1] = bl as u32;
+                self.indices[k + 2] = tr as u32;
+                self.indices[k + 3] = tr as u32;
+                self.indices[k + 4] = bl as u32;
+                self.indices[k + 5] = br as u32;
             }
         }
     }
@@ -55,5 +57,15 @@ impl World {
         w.populate();
 
         return w;
+    }
+}
+
+impl TriangleGraphicsObject for World {
+    fn vertices(&self) -> &Vec<Vertex> {
+        return &self.vertices;
+    }
+
+    fn indices(&self) -> &Vec<u32> {
+        return &self.indices;
     }
 }

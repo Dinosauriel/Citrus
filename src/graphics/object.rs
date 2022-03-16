@@ -6,6 +6,6 @@ pub struct Vertex {
 }
 
 pub trait TriangleGraphicsObject {
-    fn vertices(&self) -> Vec<Vertex>;
-    fn indices(&self) -> Vec<u32>;
+    fn vertices(&self) -> &Vec<Vertex>;
+    fn indices(&self) -> &Vec<u32>;
 }
