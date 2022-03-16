@@ -17,6 +17,7 @@ pub mod controls;
 pub mod camera;
 pub mod graphics {
     pub mod shader;
+    pub mod object;
 }
 pub mod world;
 

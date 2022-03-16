@@ -12,6 +12,7 @@ use glfw::Context;
 use controls::InputState;
 use graphics::shader::*;
 use world;
+use graphics::object::Vertex;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
@@ -137,11 +138,6 @@ unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
     return matrices;
 }
 
-#[inline]
-fn y_x_to_i(y: u64, x: u64, width: u64) -> u64 {
-    return y * width + x;
-}
-
 fn main() {
     unsafe {
         let mut base = ExampleBase::new(1920, 1080);
@@ -210,44 +206,22 @@ fn main() {
         let mut input_state: InputState = Default::default();
 
         // +++++++++++++++
-        const MAP_SIZE: usize = 512;
-        // let mut index_buffer_data = std::boxed::Box::new([0u32; 6 * (MAP_SIZE - 1) * (MAP_SIZE - 1)]);
-        let mut index_buffer_data: Vec<u32> = Vec::with_capacity(6 * (MAP_SIZE - 1) * (MAP_SIZE - 1));
-        index_buffer_data.resize(6 * (MAP_SIZE - 1) * (MAP_SIZE - 1), 0);
-        println!("index buffer size: {} integers, {} bytes", index_buffer_data.capacity(), index_buffer_data.capacity() * 4);
-        for i in 0 .. MAP_SIZE - 1 {
-            for j in 0 .. MAP_SIZE - 1 {
-                let tl = y_x_to_i(i as u64, j as u64, MAP_SIZE as u64) as u32;
-                let bl = y_x_to_i((i + 1) as u64, j as u64, MAP_SIZE as u64) as u32;
-                let tr = y_x_to_i(i as u64, (j + 1) as u64, MAP_SIZE as u64) as u32;
-                let br = y_x_to_i((i + 1) as u64, (j + 1) as u64, MAP_SIZE as u64) as u32;
-
-                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 0] = tl;
-                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 1] = bl;
-                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 2] = tr;
-                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 3] = tr;
-                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 4] = bl;
-                index_buffer_data[6 * (i * (MAP_SIZE - 1) + j) + 5] = br;
-            }
-        }
-        // println!("{:?}", index_buffer_data);
+        let world = world::World::new(512);
 
         let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
             &base.device,
             &base.device_memory_properties,
-            (index_buffer_data.len() * std::mem::size_of::<u32>()) as u64,
+            (world.indices.len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, index_buffer_data.as_ref());
+        fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, world.indices.as_ref());
         // +++++++++++++++
-
-        let world: world::World = Default::default();
 
         let (vertex_input_buffer, vertex_input_buffer_memory, vertex_buffer_memory_req) = create_buffer(
                 &base.device,
                 &base.device_memory_properties,
-                (world.vertices.len() * std::mem::size_of::<world::Vertex>()) as u64, 
+                (world.vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
@@ -301,7 +275,7 @@ fn main() {
         ];
         let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
             binding: 0,
-            stride: mem::size_of::<world::Vertex>() as u32,
+            stride: mem::size_of::<Vertex>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }];
         let vertex_input_attribute_descriptions = [
@@ -309,13 +283,13 @@ fn main() {
                 location: 0,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(world::Vertex, pos) as u32,
+                offset: offset_of!(Vertex, pos) as u32,
             },
             vk::VertexInputAttributeDescription {
                 location: 1,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(world::Vertex, color) as u32,
+                offset: offset_of!(Vertex, color) as u32,
             },
         ];
 
@@ -473,7 +447,7 @@ fn main() {
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_input_buffer], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, index_buffer, 0, vk::IndexType::UINT32);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
-                    device.cmd_draw_indexed(draw_command_buffer, index_buffer_data.len() as u32, 1, 0, 0, 1);
+                    device.cmd_draw_indexed(draw_command_buffer, world.indices.len() as u32, 1, 0, 0, 1);
                     // Or draw without the index buffer
                     // device.cmd_draw(draw_command_buffer, 3, 1, 0, 0);
                     device.cmd_end_render_pass(draw_command_buffer);

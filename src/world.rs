@@ -1,15 +1,10 @@
 use noise::{NoiseFn, Perlin};
-
-
-#[derive(Clone, Debug, Copy)]
-pub struct Vertex {
-    pub pos: [f32; 4],
-    pub color: [f32; 4],
-}
+use crate::graphics::object::Vertex;
 
 pub struct World {
     pub size: usize,
     pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
     noise: Perlin,
 }
 
@@ -27,22 +22,35 @@ impl World {
                 self.vertices[self.size * i + j] = v;
             }
         }
+
+
+        for i in 0 .. self.size - 1 {
+            for j in 0 .. self.size - 1 {
+                let tl = i       * self.size + j;
+                let bl = (i + 1) * self.size + j;
+                let tr = i       * self.size + j + 1;
+                let br = (i + 1) * self.size + j + 1;
+
+                self.indices[6 * (i * (self.size - 1) + j) + 0] = tl as u32;
+                self.indices[6 * (i * (self.size - 1) + j) + 1] = bl as u32;
+                self.indices[6 * (i * (self.size - 1) + j) + 2] = tr as u32;
+                self.indices[6 * (i * (self.size - 1) + j) + 3] = tr as u32;
+                self.indices[6 * (i * (self.size - 1) + j) + 4] = bl as u32;
+                self.indices[6 * (i * (self.size - 1) + j) + 5] = br as u32;
+            }
+        }
     }
-}
 
-
-impl Default for World {
-    fn default() -> World {
+    pub fn new(size: usize) -> Self {
         let mut w = World {
-            size: 512,
-            vertices: Vec::with_capacity(512 * 512),
+            size: size,
+            vertices: Vec::with_capacity(size * size),
+            indices: Vec::with_capacity(6 * (size - 1) * (size - 1)),
             noise: Perlin::new(),
         };
 
-        w.vertices.resize(w.size * w.size, Vertex{
-            pos: [0.0, 0.0, 0.0, 0.0],
-            color: [0.0, 1.0, 0.0, 1.0]
-        });
+        w.indices.resize_with(6 * (size - 1) * (size - 1), Default::default);
+        w.vertices.resize_with(w.size * w.size, Default::default);
 
         w.populate();
 
