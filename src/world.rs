@@ -2,8 +2,24 @@ use noise::{NoiseFn, Perlin};
 use crate::graphics::object::Vertex;
 use crate::graphics::object::TriangleGraphicsObject;
 
+const BLOCK_TRIANGLE_INDICES: [usize; 36] = [
+    0, 1, 2,
+    1, 2, 3,
+    4, 5, 6,
+    5, 6, 7,
+    0, 1, 4,
+    1, 4, 5,
+    2, 3, 6,
+    3, 6, 7,
+    0, 2, 4,
+    2, 4, 6,
+    1, 3, 5,
+    3, 5, 7,
+];
+
 pub struct World {
     pub size: usize,
+    blocks: Vec<[u32; 3]>,
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
     noise: Perlin,
@@ -11,48 +27,48 @@ pub struct World {
 
 impl World {
     fn populate(&mut self) {
-        for i in 0 .. self.size {
-            for j in 0 .. self.size {
-                let y = (2. * self.noise.get([(i as f64) / 10., (j as f64) / 10.])).floor();
-                // println!("{:?}", y);
-                let v = Vertex {
-                    pos: [i as f32, y as f32, j as f32, 1.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
-                };
-
-                self.vertices[self.size * i + j] = v;
+        for x in 0 .. self.size {
+            for z in 0 .. self.size {
+                let y = (5. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as u32;
+                self.blocks[x * self.size + z] = [x as u32, y, z as u32];
             }
         }
 
 
-        for i in 0 .. self.size - 1 {
-            for j in 0 .. self.size - 1 {
-                let tl = i       * self.size + j;
-                let bl = (i + 1) * self.size + j;
-                let tr = i       * self.size + j + 1;
-                let br = (i + 1) * self.size + j + 1;
-
-                let k = 6 * (i * (self.size - 1) + j);
-                self.indices[k + 0] = tl as u32;
-                self.indices[k + 1] = bl as u32;
-                self.indices[k + 2] = tr as u32;
-                self.indices[k + 3] = tr as u32;
-                self.indices[k + 4] = bl as u32;
-                self.indices[k + 5] = br as u32;
+        for i in 0 .. self.blocks.len() {
+            let block = self.blocks[i];
+            for x in 0 .. 2 {
+                for y in 0 .. 2 {
+                    for z in 0 .. 2 {
+                        let [block_x, block_y, block_z] = block;
+                        self.vertices[8 * i + 4 * x + 2 * y + z] = Vertex {
+                            pos: [(block_x + x as u32) as f32, (block_y + y as u32) as f32, (block_z + z as u32) as f32, 1.0],
+                            color: [0.0, 1.0, 0.0, 1.0]
+                        };
+                    }
+                }
+            }
+            
+            for j in 0 .. BLOCK_TRIANGLE_INDICES.len() {
+                self.indices[i * 36 + j] = (8 * i + BLOCK_TRIANGLE_INDICES[j]) as u32;
             }
         }
     }
 
     pub fn new(size: usize) -> Self {
+        let number_of_blocks = size * size;
+
         let mut w = World {
             size: size,
-            vertices: Vec::with_capacity(size * size),
-            indices: Vec::with_capacity(6 * (size - 1) * (size - 1)),
+            blocks: Vec::with_capacity(number_of_blocks),
+            vertices: Vec::with_capacity(8 * number_of_blocks),
+            indices: Vec::with_capacity(6 * 6 * number_of_blocks),
             noise: Perlin::new(),
         };
 
-        w.indices.resize_with(6 * (size - 1) * (size - 1), Default::default);
-        w.vertices.resize_with(w.size * w.size, Default::default);
+        w.blocks.resize_with(w.blocks.capacity(), Default::default);
+        w.indices.resize_with(w.indices.capacity(), Default::default);
+        w.vertices.resize_with(w.vertices.capacity(), Default::default);
 
         w.populate();
 
