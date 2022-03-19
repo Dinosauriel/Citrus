@@ -7,7 +7,7 @@ use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 use std::mem::align_of;
-// use std::time;
+use std::time;
 use glfw::Context;
 use controls::InputState;
 use graphics::shader::*;
@@ -132,7 +132,7 @@ unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
     let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 100.);
 
     let matrices = UniformBufferObject {
-        model: Mat4::from_rotation_x(0.),
+        model: Mat4::IDENTITY,
         view: view,
         proj: proj
     };
@@ -228,18 +228,12 @@ fn main() {
 
         fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, world.vertices());
         // ++++++++++++++
-        let matrices = UniformBufferObject {
-            model: Mat4::IDENTITY,
-            view: Mat4::IDENTITY,
-            proj: Mat4::IDENTITY
-        };
         let (matrix_buffer, matrix_buffer_memory, matrix_buffer_memory_req) = create_buffer(
             &base.device,
             &base.device_memory_properties,
             std::mem::size_of::<UniformBufferObject>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        fill_buffer(&base.device, matrix_buffer_memory, &matrix_buffer_memory_req, &[matrices]);
         // ++++++++++++++
 
         let mut vertex_spv_file = Cursor::new(&include_bytes!("./shaders/vert.spv")[..]);
@@ -384,9 +378,17 @@ fn main() {
 
         let graphic_pipeline = graphics_pipelines[0];
 
-        // let start_time = time::Instant::now();
+        let mut start_time = time::Instant::now();
+        let mut frames = 0;
 
         while !base.window.should_close() {
+
+            if start_time.elapsed() >= time::Duration::from_secs(1) {
+                println!("FPS: {}", frames);
+                start_time = time::Instant::now();
+                frames = 0;
+            }
+
             base.window.swap_buffers();
 
             let projection_matrices = get_proj_matrices(&cam);
@@ -482,6 +484,7 @@ fn main() {
 
             // println!("{:?}", cam.position);
             base.glfw.poll_events();
+            frames += 1;
         }
 
         base.device.device_wait_idle().unwrap();
