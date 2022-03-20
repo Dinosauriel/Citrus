@@ -207,7 +207,7 @@ fn main() {
         let mut input_state: InputState = Default::default();
 
         // +++++++++++++++
-        let world = world::World::new(512);
+        let world = world::World::new(512, 16);
 
         let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
             &base.device,

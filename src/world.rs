@@ -17,9 +17,28 @@ const BLOCK_TRIANGLE_INDICES: [usize; 36] = [
     3, 5, 7,
 ];
 
+const BLOCK_VERTICES: [[usize; 3]; 8] = [
+    [0, 0, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+    [0, 1, 1],
+
+    [1, 0, 0],
+    [1, 0, 1],
+    [1, 1, 0],
+    [1, 1, 1]
+];
+
+#[derive(Clone)]
+pub enum BlockType {
+    NoBlock,
+    Grass
+}
+
 pub struct World {
     pub size: usize,
-    blocks: Vec<[u32; 3]>,
+    pub height: usize,
+    blocks: Vec<BlockType>,
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
     noise: Perlin,
@@ -29,50 +48,79 @@ impl World {
     fn populate(&mut self) {
         for x in 0 .. self.size {
             for z in 0 .. self.size {
-                let y = (5. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as u32;
-                self.blocks[x * self.size + z] = [x as u32, y, z as u32];
+                let y = (5. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as usize;
+                assert!(y < self.height);
+                let coords = self.block_coordinates(&x, &y, &z);
+                self.blocks[coords] = BlockType::Grass;
+
+                for i in 0 .. BLOCK_TRIANGLE_INDICES.len() {
+                    let [v_x, v_y, v_z] = BLOCK_VERTICES[BLOCK_TRIANGLE_INDICES[i]];
+                    self.indices[(x * self.size + z) * 36 + i] = ((y + v_y) * (self.size + 1) * (self.size + 1) + (x + v_x) * (self.size + 1) + (z + v_z)) as u32;
+                }
             }
         }
 
-
-        for i in 0 .. self.blocks.len() {
-            let block = self.blocks[i];
-            for x in 0 .. 2 {
-                for y in 0 .. 2 {
-                    for z in 0 .. 2 {
-                        let [block_x, block_y, block_z] = block;
-                        self.vertices[8 * i + 4 * x + 2 * y + z] = Vertex {
-                            pos: [(block_x + x as u32) as f32, (block_y + y as u32) as f32, (block_z + z as u32) as f32, 1.0],
-                            color: [0.0, 1.0, 0.0, 1.0]
-                        };
+        for y in 0 .. self.height + 1 {
+            for x in 0 .. self.size + 1 {
+                for z in 0 .. self.size + 1 {
+                    self.vertices[y * (self.size + 1) * (self.size + 1) + x * (self.size + 1) + z] = Vertex {
+                        pos: [x as f32, y as f32, z as f32, 1.0],
+                        color: [0.0, 1.0, 0.0, 1.0]
                     }
                 }
             }
-            
-            for j in 0 .. BLOCK_TRIANGLE_INDICES.len() {
-                self.indices[i * 36 + j] = (8 * i + BLOCK_TRIANGLE_INDICES[j]) as u32;
-            }
         }
+
+
+        // for i in 0 .. self.blocks.len() {
+        //     let block = self.blocks[i];
+        //     for x in 0 .. 2 {
+        //         for y in 0 .. 2 {
+        //             for z in 0 .. 2 {
+        //                 let [block_x, block_y, block_z] = block;
+        //                 self.vertices[8 * i + 4 * x + 2 * y + z] = Vertex {
+        //                     pos: [(block_x + x as u32) as f32, (block_y + y as u32) as f32, (block_z + z as u32) as f32, 1.0],
+        //                     color: [0.0, 1.0, 0.0, 1.0]
+        //                 };
+        //             }
+        //         }
+        //     }
+            
+        //     for j in 0 .. BLOCK_TRIANGLE_INDICES.len() {
+        //         self.indices[i * 36 + j] = (8 * i + BLOCK_TRIANGLE_INDICES[j]) as u32;
+        //     }
+        // }
     }
 
-    pub fn new(size: usize) -> Self {
-        let number_of_blocks = size * size;
+    pub fn new(size: usize, height: usize) -> Self {
 
         let mut w = World {
             size: size,
-            blocks: Vec::with_capacity(number_of_blocks),
-            vertices: Vec::with_capacity(8 * number_of_blocks),
-            indices: Vec::with_capacity(6 * 6 * number_of_blocks),
+            height: height,
+            blocks: Vec::with_capacity(size * size * height),
+            vertices: Vec::with_capacity((size + 1) * (size + 1) * (height + 1)),
+            indices: Vec::with_capacity(6 * 6 * size * size),
             noise: Perlin::new(),
         };
 
-        w.blocks.resize_with(w.blocks.capacity(), Default::default);
-        w.indices.resize_with(w.indices.capacity(), Default::default);
+        w.blocks.resize(w.blocks.capacity(), BlockType::NoBlock);
+        w.indices.resize(w.indices.capacity(), 0);
         w.vertices.resize_with(w.vertices.capacity(), Default::default);
 
         w.populate();
 
         return w;
+    }
+
+    pub fn block_coordinates(&self, x: &usize, y: &usize, z: &usize) -> usize {
+        return y * self.size * self.size + x * self.size + z;
+    }
+
+    pub fn block_at(&self, x: &usize, y: &usize, z: &usize) -> &BlockType {
+        if *x >= self.size || *y >= self.height || *z >= self.size {
+            return &BlockType::NoBlock;
+        }
+        return &self.blocks[self.block_coordinates(x, y, z)];
     }
 }
 
