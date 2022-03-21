@@ -207,7 +207,7 @@ fn main() {
         let mut input_state: InputState = Default::default();
 
         // +++++++++++++++
-        let world = world::World::new(512, 16);
+        let world = world::World::new(64, 16);
 
         let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
             &base.device,
@@ -314,7 +314,7 @@ fn main() {
             front_face: vk::FrontFace::COUNTER_CLOCKWISE,
             line_width: 1.0,
             polygon_mode: vk::PolygonMode::LINE,
-            cull_mode: vk::CullModeFlags::NONE,
+            cull_mode: vk::CullModeFlags::BACK,
             ..Default::default()
         };
         let multisample_state_info = vk::PipelineMultisampleStateCreateInfo {
@@ -474,7 +474,8 @@ fn main() {
 
                 match event {
                     glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
-                        base.window.set_should_close(true)
+                        base.window.set_should_close(true);
+                        println!("escape!");
                     },
                     _ => {},
                 }
