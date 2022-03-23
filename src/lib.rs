@@ -18,6 +18,7 @@ pub mod camera;
 pub mod graphics {
     pub mod shader;
     pub mod object;
+    pub mod triangle;
 }
 pub mod world;
 
@@ -556,5 +557,6 @@ impl Drop for ExampleBase {
                 .destroy_debug_utils_messenger(self.debug_call_back, None);
             self.instance.destroy_instance(None);
         }
+        println!("drop!");
     }
 }

@@ -14,6 +14,7 @@ use graphics::shader::*;
 use world;
 use graphics::object::Vertex;
 use graphics::object::TriangleGraphicsObject;
+use graphics::triangle::Triangle;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
@@ -228,6 +229,39 @@ fn main() {
 
         fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, world.vertices());
         // ++++++++++++++
+
+        let triangle = Triangle::new(
+            &Vertex {
+                pos: [0., 2., 0., 1.],
+                color: [1., 0., 1., 1.]
+            },
+            &Vertex {
+                pos: [0., -2., 0., 1.],
+                color: [1., 0., 0., 1.]
+            },
+            &Vertex {
+                pos: [1., 0., 0., 0.],
+                color: [1., 0., 0., 1.]
+            },
+        );
+
+        let (triangle_index_buffer, triangle_index_buffer_memory, triangle_index_buffer_memory_req) = create_buffer(
+            &base.device,
+            &base.device_memory_properties,
+            (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        fill_buffer(&base.device, triangle_index_buffer_memory, &triangle_index_buffer_memory_req, triangle.indices());
+
+        let (triangle_vertex_input_buffer, triangle_vertex_input_buffer_memory, triangle_vertex_buffer_memory_req) = create_buffer(
+            &base.device,
+            &base.device_memory_properties,
+            (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        fill_buffer(&base.device, triangle_vertex_input_buffer_memory, &triangle_vertex_buffer_memory_req, triangle.vertices());
+
+        // ++++++++++++++
         let (matrix_buffer, matrix_buffer_memory, matrix_buffer_memory_req) = create_buffer(
             &base.device,
             &base.device_memory_properties,
@@ -235,12 +269,6 @@ fn main() {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
-
-        let mut vertex_spv_file = Cursor::new(&include_bytes!("./shaders/vert.spv")[..]);
-        let mut frag_spv_file = Cursor::new(&include_bytes!("./shaders/frag.spv")[..]);
-        let vertex_shader_module = get_shader_module(&mut vertex_spv_file, &base.device);
-        let fragment_shader_module = get_shader_module(&mut frag_spv_file, &base.device);
-
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
@@ -251,6 +279,11 @@ fn main() {
             ..Default::default()
         };
         let pipeline_layout = base.device.create_pipeline_layout(&layout_create_info, None).unwrap();
+
+        let mut vertex_spv_file = Cursor::new(&include_bytes!("./shaders/vert.spv")[..]);
+        let mut frag_spv_file = Cursor::new(&include_bytes!("./shaders/frag.spv")[..]);
+        let vertex_shader_module = get_shader_module(&mut vertex_spv_file, &base.device);
+        let fragment_shader_module = get_shader_module(&mut frag_spv_file, &base.device);
 
         let shader_entry_name = CStr::from_bytes_with_nul_unchecked(b"main\0");
         let shader_stage_create_infos = [
@@ -268,6 +301,7 @@ fn main() {
                 ..Default::default()
             },
         ];
+
         let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
             binding: 0,
             stride: mem::size_of::<Vertex>() as u32,
@@ -287,8 +321,6 @@ fn main() {
                 offset: offset_of!(Vertex, color) as u32,
             },
         ];
-
-
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
             .vertex_binding_descriptions(&vertex_input_binding_descriptions);
@@ -296,6 +328,7 @@ fn main() {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             ..Default::default()
         };
+
         let viewports = [vk::Viewport {
             x: 0.0,
             y: 0.0,
@@ -352,8 +385,7 @@ fn main() {
             .attachments(&color_blend_attachment_states);
 
         let dynamic_state = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-        let dynamic_state_info =
-            vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
+        let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
 
         let graphic_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_create_infos)
@@ -434,7 +466,7 @@ fn main() {
                 &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
                 &[base.present_complete_semaphore],
                 &[base.rendering_complete_semaphore],
-                |device, draw_command_buffer| {
+                | device: &ash::Device, draw_command_buffer: vk::CommandBuffer | {
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &render_pass_begin_info,
@@ -451,12 +483,15 @@ fn main() {
                     device.cmd_bind_index_buffer(draw_command_buffer, index_buffer, 0, vk::IndexType::UINT32);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
                     device.cmd_draw_indexed(draw_command_buffer, world.indices().len() as u32, 1, 0, 0, 1);
-                    // Or draw without the index buffer
-                    // device.cmd_draw(draw_command_buffer, 3, 1, 0, 0);
+                    
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_input_buffer], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer, 0, vk::IndexType::UINT32);
+                    device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
+
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
-            //let mut present_info_err = mem::zeroed();
+
             let wait_semaphors = [base.rendering_complete_semaphore];
             let swapchains = [base.swapchain];
             let image_indices = [present_index];
@@ -497,15 +532,24 @@ fn main() {
         base.device.destroy_pipeline_layout(pipeline_layout, None);
         base.device.destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(fragment_shader_module, None);
+
         base.device.free_memory(index_buffer_memory, None);
         base.device.destroy_buffer(index_buffer, None);
+        base.device.free_memory(triangle_index_buffer_memory, None);
+        base.device.destroy_buffer(triangle_index_buffer, None);
+
         base.device.free_memory(vertex_input_buffer_memory, None);
         base.device.destroy_buffer(vertex_input_buffer, None);
+
+        base.device.free_memory(triangle_vertex_input_buffer_memory, None);
+        base.device.destroy_buffer(triangle_vertex_input_buffer, None);
+
         base.device.free_memory(matrix_buffer_memory, None);
         base.device.destroy_buffer(matrix_buffer, None);
         for framebuffer in framebuffers {
             base.device.destroy_framebuffer(framebuffer, None);
         }
         base.device.destroy_render_pass(renderpass, None);
+        println!("free!");
     }
 }
