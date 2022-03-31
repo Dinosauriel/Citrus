@@ -8,6 +8,7 @@ pub struct InputState {
 
 	pub space: bool,
 	pub l_ctrl: bool,
+	pub escape: bool,
 
 	pub cursor_did_move: bool,
 	pub cursor_x: f64,
@@ -17,6 +18,12 @@ pub struct InputState {
 impl InputState {
 	pub fn update_from_event(&mut self, event: &glfw::WindowEvent) {
 		match event {
+			glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
+				self.escape = true;
+			},
+			glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Release, _) => {
+				self.escape = false;
+			},
 			glfw::WindowEvent::Key(glfw::Key::LeftControl, _, glfw::Action::Press, _) => {
 				self.l_ctrl = true;
 			},

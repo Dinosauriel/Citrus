@@ -19,8 +19,10 @@ pub mod graphics {
     pub mod shader;
     pub mod object;
     pub mod triangle;
+    pub mod buffer;
 }
 pub mod world;
+pub mod config;
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]
@@ -33,6 +35,7 @@ macro_rules! offset_of {
         }
     }};
 }
+
 /// Helper function for submitting command buffers. Immediately waits for the fence before the command buffer
 /// is executed. That way we can delay the waiting for the fences by 1 frame which is good for performance.
 /// Make sure to create the fence in a signaled state on the first use.
@@ -47,16 +50,11 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
     signal_semaphores: &[vk::Semaphore],
     f: F,
 ) {
-    device
-        .wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX)
-        .expect("Wait for fence failed.");
+    device.wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX).expect("Wait for fence failed.");
 
-    device
-        .reset_fences(&[command_buffer_reuse_fence])
-        .expect("Reset fences failed.");
+    device.reset_fences(&[command_buffer_reuse_fence]).expect("Reset fences failed.");
 
-    device
-        .reset_command_buffer(
+    device.reset_command_buffer(
             command_buffer,
             vk::CommandBufferResetFlags::RELEASE_RESOURCES,
         )
@@ -65,13 +63,11 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
     let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
         .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-    device
-        .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-        .expect("Begin commandbuffer");
+    device.begin_command_buffer(command_buffer, &command_buffer_begin_info).expect("Begin commandbuffer");
+
     f(device, command_buffer);
-    device
-        .end_command_buffer(command_buffer)
-        .expect("End commandbuffer");
+
+    device.end_command_buffer(command_buffer).expect("End commandbuffer");
 
     let command_buffers = vec![command_buffer];
 
@@ -81,13 +77,11 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
         .command_buffers(&command_buffers)
         .signal_semaphores(signal_semaphores);
 
-    device
-        .queue_submit(
+    device.queue_submit(
             submit_queue,
             &[submit_info.build()],
             command_buffer_reuse_fence,
-        )
-        .expect("queue submit failed.");
+        ).expect("queue submit failed.");
 }
 
 unsafe extern "system" fn vulkan_debug_callback(

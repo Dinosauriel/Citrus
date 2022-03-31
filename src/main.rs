@@ -1,4 +1,3 @@
-use ash::util::*;
 use ash::vk;
 use glam::Mat4;
 use citrus::*;
@@ -6,15 +5,15 @@ use std::default::Default;
 use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
-use std::mem::align_of;
 use std::time;
 use glfw::Context;
 use controls::InputState;
-use graphics::shader::*;
 use world;
+use graphics::shader::*;
 use graphics::object::Vertex;
 use graphics::object::TriangleGraphicsObject;
 use graphics::triangle::Triangle;
+use graphics::buffer;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
@@ -93,43 +92,9 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
     return descriptor_sets;
 }
 
-unsafe fn create_buffer(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-                        size: vk::DeviceSize, usage: vk::BufferUsageFlags, properties: vk::MemoryPropertyFlags) 
-                        -> (vk::Buffer, vk::DeviceMemory, vk::MemoryRequirements) {
-    let buffer_info = vk::BufferCreateInfo::builder()
-        .size(size)
-        .usage(usage)
-        .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-    let buffer = device.create_buffer(&buffer_info, None).unwrap();
-    let memory_req = device.get_buffer_memory_requirements(buffer);
-
-    let memory_index = find_memorytype_index(&memory_req, &device_memory_properties, properties)
-        .expect("unable to find suitable memorytype for buffer.");
-
-    let allocation_info = vk::MemoryAllocateInfo {
-        allocation_size: memory_req.size,
-        memory_type_index: memory_index,
-        ..Default::default()
-    };
-
-    let memory = device.allocate_memory(&allocation_info, None).unwrap();
-    // let mapped_memory_pointer = device.map_memory(memory, 0, memory_req.size, vk::MemoryMapFlags::empty()).unwrap();
-
-    device.bind_buffer_memory(buffer, memory, 0).unwrap();
-
-    return (buffer, memory, memory_req)
-}
-
-unsafe fn fill_buffer<T: std::marker::Copy>(device: &ash::Device, buffer_memory: vk::DeviceMemory, buffer_memory_req: &vk::MemoryRequirements, content: &[T]) {
-    let pointer = device.map_memory(buffer_memory, 0, buffer_memory_req.size, vk::MemoryMapFlags::empty()).unwrap();
-    let mut align = Align::new(pointer, align_of::<T>() as u64, buffer_memory_req.size);
-    align.copy_from_slice(&content);
-    device.unmap_memory(buffer_memory);
-}
-
 unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
     let view = Mat4::look_at_rh(cam.position, cam.position + cam.direction, camera::UP);
+    // let view = Mat4::look_at_rh(- cam.direction * 2., glam::Vec3::new(0., 0., 0.), camera::UP);
     let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 100.);
 
     let matrices = UniformBufferObject {
@@ -210,24 +175,24 @@ fn main() {
         // +++++++++++++++
         let world = world::World::new(64, 16);
 
-        let (index_buffer, index_buffer_memory, index_buffer_memory_req) = create_buffer(
+        let index_buffer = buffer::Buffer::create(
             &base.device,
             &base.device_memory_properties,
             (world.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        fill_buffer(&base.device, index_buffer_memory, &index_buffer_memory_req, world.indices());
+        index_buffer.fill(&base.device, world.indices());
         // +++++++++++++++
 
-        let (vertex_input_buffer, vertex_input_buffer_memory, vertex_buffer_memory_req) = create_buffer(
+        let vertex_buffer = buffer::Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
                 (world.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        fill_buffer(&base.device, vertex_input_buffer_memory, &vertex_buffer_memory_req, world.vertices());
+        vertex_buffer.fill(&base.device, world.vertices());
         // ++++++++++++++
 
         let triangle = Triangle::new(
@@ -245,24 +210,24 @@ fn main() {
             },
         );
 
-        let (triangle_index_buffer, triangle_index_buffer_memory, triangle_index_buffer_memory_req) = create_buffer(
+        let triangle_index_buffer = buffer::Buffer::create(
             &base.device,
             &base.device_memory_properties,
             (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        fill_buffer(&base.device, triangle_index_buffer_memory, &triangle_index_buffer_memory_req, triangle.indices());
+        triangle_index_buffer.fill(&base.device, triangle.indices());
 
-        let (triangle_vertex_input_buffer, triangle_vertex_input_buffer_memory, triangle_vertex_buffer_memory_req) = create_buffer(
+        let triangle_vertex_buffer = buffer::Buffer::create(
             &base.device,
             &base.device_memory_properties,
             (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        fill_buffer(&base.device, triangle_vertex_input_buffer_memory, &triangle_vertex_buffer_memory_req, triangle.vertices());
+        triangle_vertex_buffer.fill(&base.device, triangle.vertices());
 
         // ++++++++++++++
-        let (matrix_buffer, matrix_buffer_memory, matrix_buffer_memory_req) = create_buffer(
+        let matrix_buffer = buffer::Buffer::create(
             &base.device,
             &base.device_memory_properties,
             std::mem::size_of::<UniformBufferObject>() as u64,
@@ -272,7 +237,7 @@ fn main() {
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
-        let descriptor_sets = create_descriptor_sets(&base.device, descriptor_pool, descriptor_set_layout, matrix_buffer, mem::size_of::<UniformBufferObject>() as u64);
+        let descriptor_sets = create_descriptor_sets(&base.device, descriptor_pool, descriptor_set_layout, matrix_buffer.vulkan_instance, mem::size_of::<UniformBufferObject>() as u64);
         let layout_create_info = vk::PipelineLayoutCreateInfo {
             set_layout_count: 1,
             p_set_layouts: &descriptor_set_layout,
@@ -424,7 +389,7 @@ fn main() {
             base.window.swap_buffers();
 
             let projection_matrices = get_proj_matrices(&cam);
-            fill_buffer(&base.device, matrix_buffer_memory, &matrix_buffer_memory_req, &[projection_matrices]);
+            matrix_buffer.fill(&base.device, &[projection_matrices]);
 
             let (present_index, _) = base
                 .swapchain_loader
@@ -435,6 +400,9 @@ fn main() {
                     vk::Fence::null(),
                 )
                 .unwrap();
+
+            // println!("{}", present_index);
+
             let clear_values = [
                 vk::ClearValue {
                     color: vk::ClearColorValue {
@@ -479,13 +447,13 @@ fn main() {
                     );
                     device.cmd_set_viewport(draw_command_buffer, 0, &viewports);
                     device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
-                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_input_buffer], &[0]);
-                    device.cmd_bind_index_buffer(draw_command_buffer, index_buffer, 0, vk::IndexType::UINT32);
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vulkan_instance], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
                     device.cmd_draw_indexed(draw_command_buffer, world.indices().len() as u32, 1, 0, 0, 1);
                     
-                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_input_buffer], &[0]);
-                    device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer, 0, vk::IndexType::UINT32);
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_buffer.vulkan_instance], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
                     device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
 
                     device.cmd_end_render_pass(draw_command_buffer);
@@ -504,19 +472,15 @@ fn main() {
 
             for (_, event) in glfw::flush_messages(&base.events) {
                 // println!("{:?}", event);
-
                 input_state.update_from_event(&event);
-
-                match event {
-                    glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
-                        base.window.set_should_close(true);
-                        println!("escape!");
-                    },
-                    _ => {},
-                }
             }
 
             cam.update_from_input_state(&input_state);
+
+            if input_state.escape {
+                base.window.set_should_close(true);
+                println!("escape!");
+            }
 
             // println!("{:?}", cam.position);
             base.glfw.poll_events();
@@ -533,19 +497,12 @@ fn main() {
         base.device.destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(fragment_shader_module, None);
 
-        base.device.free_memory(index_buffer_memory, None);
-        base.device.destroy_buffer(index_buffer, None);
-        base.device.free_memory(triangle_index_buffer_memory, None);
-        base.device.destroy_buffer(triangle_index_buffer, None);
+        index_buffer.free(&base.device);
+        triangle_index_buffer.free(&base.device);
+        vertex_buffer.free(&base.device);
+        triangle_vertex_buffer.free(&base.device);
+        matrix_buffer.free(&base.device);
 
-        base.device.free_memory(vertex_input_buffer_memory, None);
-        base.device.destroy_buffer(vertex_input_buffer, None);
-
-        base.device.free_memory(triangle_vertex_input_buffer_memory, None);
-        base.device.destroy_buffer(triangle_vertex_input_buffer, None);
-
-        base.device.free_memory(matrix_buffer_memory, None);
-        base.device.destroy_buffer(matrix_buffer, None);
         for framebuffer in framebuffers {
             base.device.destroy_framebuffer(framebuffer, None);
         }
