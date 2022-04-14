@@ -225,6 +225,37 @@ fn main() {
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         triangle_vertex_buffer.fill(&base.device, triangle.vertices());
+        // ++++++++++++++
+
+        let hud_triangle = Triangle::new(
+            &Vertex {
+                pos: [0.5, 0., 0., 1.],
+                color: [1., 0., 1., 1.]
+            },
+            &Vertex {
+                pos: [-0.5, 0., 0., 1.],
+                color: [1., 0., 0., 1.]
+            },
+            &Vertex {
+                pos: [0., 0.5, 0., 1.],
+                color: [1., 1., 0., 1.]
+            },
+        );
+        let hud_triangle_index_buffer = buffer::Buffer::create(
+            &base.device,
+            &base.device_memory_properties,
+            (hud_triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        hud_triangle_index_buffer.fill(&base.device, hud_triangle.indices());
+
+        let hud_triangle_vertex_buffer = buffer::Buffer::create(
+            &base.device,
+            &base.device_memory_properties,
+            (hud_triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        hud_triangle_vertex_buffer.fill(&base.device, hud_triangle.vertices());
 
         // ++++++++++++++
         let matrix_buffer = buffer::Buffer::create(
@@ -293,6 +324,28 @@ fn main() {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             ..Default::default()
         };
+
+        let mut hud_vertex_spv = Cursor::new(&include_bytes!("./shaders/hud_vert.spv")[..]);
+        let mut hud_frag_spv = Cursor::new(&include_bytes!("./shaders/hud_frag.spv")[..]);
+        let hud_vertex_shader_module = get_shader_module(&mut hud_vertex_spv, &base.device);
+        let hud_fragment_shader_module = get_shader_module(&mut hud_frag_spv, &base.device);
+
+        let hud_shader_stage_create_infos = [
+            vk::PipelineShaderStageCreateInfo {
+                module: hud_vertex_shader_module,
+                p_name: shader_entry_name.as_ptr(),
+                stage: vk::ShaderStageFlags::VERTEX,
+                ..Default::default()
+            },
+            vk::PipelineShaderStageCreateInfo {
+                s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
+                module: hud_fragment_shader_module,
+                p_name: shader_entry_name.as_ptr(),
+                stage: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            },
+        ];
+
 
         let viewports = [vk::Viewport {
             x: 0.0,
@@ -365,15 +418,26 @@ fn main() {
             .layout(pipeline_layout)
             .render_pass(renderpass);
 
+        let hud_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
+        .stages(&hud_shader_stage_create_infos)
+        .vertex_input_state(&vertex_input_state_info)
+        .input_assembly_state(&vertex_input_assembly_state_info)
+        .viewport_state(&viewport_state_info)
+        .rasterization_state(&rasterization_info)
+        .multisample_state(&multisample_state_info)
+        .depth_stencil_state(&depth_state_info)
+        .color_blend_state(&color_blend_state)
+        .dynamic_state(&dynamic_state_info)
+        .layout(pipeline_layout)
+        .render_pass(renderpass);
+
         let graphics_pipelines = base.device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
-                &[graphic_pipeline_info.build()],
+                &[graphic_pipeline_info.build(), hud_pipeline_info.build()],
                 None,
             )
             .expect("Unable to create graphics pipeline");
-
-        let graphic_pipeline = graphics_pipelines[0];
 
         let mut start_time = time::Instant::now();
         let mut frames = 0;
@@ -435,16 +499,9 @@ fn main() {
                 &[base.present_complete_semaphore],
                 &[base.rendering_complete_semaphore],
                 | device: &ash::Device, draw_command_buffer: vk::CommandBuffer | {
-                    device.cmd_begin_render_pass(
-                        draw_command_buffer,
-                        &render_pass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    );
-                    device.cmd_bind_pipeline(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        graphic_pipeline,
-                    );
+                    device.cmd_begin_render_pass(draw_command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
+                    device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[0]);
+
                     device.cmd_set_viewport(draw_command_buffer, 0, &viewports);
                     device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vulkan_instance], &[0]);
@@ -455,6 +512,11 @@ fn main() {
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_buffer.vulkan_instance], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
                     device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
+
+                    device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vulkan_instance], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, hud_triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
+                    device.cmd_draw_indexed(draw_command_buffer, hud_triangle.indices().len() as u32, 1, 0, 0, 1);
 
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
@@ -493,14 +555,22 @@ fn main() {
         }
         base.device.destroy_descriptor_set_layout(descriptor_set_layout, None);
         base.device.destroy_descriptor_pool(descriptor_pool, None);
+
         base.device.destroy_pipeline_layout(pipeline_layout, None);
+
         base.device.destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(fragment_shader_module, None);
+        base.device.destroy_shader_module(hud_vertex_shader_module, None);
+        base.device.destroy_shader_module(hud_fragment_shader_module, None);
 
         index_buffer.free(&base.device);
         triangle_index_buffer.free(&base.device);
+        hud_triangle_index_buffer.free(&base.device);
+
         vertex_buffer.free(&base.device);
         triangle_vertex_buffer.free(&base.device);
+        hud_triangle_vertex_buffer.free(&base.device);
+
         matrix_buffer.free(&base.device);
 
         for framebuffer in framebuffers {
