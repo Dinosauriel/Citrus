@@ -18,7 +18,6 @@ pub mod camera;
 pub mod graphics {
     pub mod shader;
     pub mod object;
-    pub mod triangle;
     pub mod buffer;
 }
 pub mod world;
@@ -178,8 +177,7 @@ impl ExampleBase {
         let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         // glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
 
-        let (mut window, events) = glfw.create_window(window_width, window_height, "Ash - Example", glfw::WindowMode::Windowed)
-            .expect("failed to create glfw window");
+        let (mut window, events) = glfw.create_window(window_width, window_height, "Teardown", glfw::WindowMode::Windowed).expect("failed to create glfw window");
 
         window.make_current();
         window.set_key_polling(true);
@@ -543,12 +541,10 @@ impl Drop for ExampleBase {
                 self.device.destroy_image_view(image_view, None);
             }
             self.device.destroy_command_pool(self.pool, None);
-            self.swapchain_loader
-                .destroy_swapchain(self.swapchain, None);
+            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
             self.device.destroy_device(None);
             self.surface_loader.destroy_surface(self.surface, None);
-            self.debug_utils_loader
-                .destroy_debug_utils_messenger(self.debug_call_back, None);
+            self.debug_utils_loader.destroy_debug_utils_messenger(self.debug_call_back, None);
             self.instance.destroy_instance(None);
         }
         println!("drop!");

@@ -12,7 +12,7 @@ use world;
 use graphics::shader::*;
 use graphics::object::Vertex;
 use graphics::object::TriangleGraphicsObject;
-use graphics::triangle::Triangle;
+use graphics::object::Triangle;
 use graphics::buffer;
 
 #[derive(Clone, Debug, Copy)]
@@ -173,7 +173,35 @@ fn main() {
         let mut input_state: InputState = Default::default();
 
         // +++++++++++++++
-        let world = world::World::new(64, 16);
+        let mut world = world::World::new(64, 16);
+
+        let object1 = world::Object::create();
+        world.objects.push(object1);
+
+        let mut object_buffers: Vec<(&world::Object, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
+        
+        for object in &world.objects {
+
+            let index_buffer = buffer::Buffer::create(
+                &base.device,
+                &base.device_memory_properties,
+                (object.indices.len() * std::mem::size_of::<u32>()) as u64,
+                vk::BufferUsageFlags::INDEX_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+
+            index_buffer.fill(&base.device, &object.indices);
+
+            let vertex_buffer = buffer::Buffer::create(
+                &base.device,
+                &base.device_memory_properties,
+                (object.vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
+                vk::BufferUsageFlags::VERTEX_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+
+            vertex_buffer.fill(&base.device, &object.vertices);
+
+            object_buffers.push((object, vertex_buffer, index_buffer));
+        }
 
         let index_buffer = buffer::Buffer::create(
             &base.device,
@@ -419,17 +447,17 @@ fn main() {
             .render_pass(renderpass);
 
         let hud_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
-        .stages(&hud_shader_stage_create_infos)
-        .vertex_input_state(&vertex_input_state_info)
-        .input_assembly_state(&vertex_input_assembly_state_info)
-        .viewport_state(&viewport_state_info)
-        .rasterization_state(&rasterization_info)
-        .multisample_state(&multisample_state_info)
-        .depth_stencil_state(&depth_state_info)
-        .color_blend_state(&color_blend_state)
-        .dynamic_state(&dynamic_state_info)
-        .layout(pipeline_layout)
-        .render_pass(renderpass);
+            .stages(&hud_shader_stage_create_infos)
+            .vertex_input_state(&vertex_input_state_info)
+            .input_assembly_state(&vertex_input_assembly_state_info)
+            .viewport_state(&viewport_state_info)
+            .rasterization_state(&rasterization_info)
+            .multisample_state(&multisample_state_info)
+            .depth_stencil_state(&depth_state_info)
+            .color_blend_state(&color_blend_state)
+            .dynamic_state(&dynamic_state_info)
+            .layout(pipeline_layout)
+            .render_pass(renderpass);
 
         let graphics_pipelines = base.device
             .create_graphics_pipelines(
@@ -464,8 +492,6 @@ fn main() {
                     vk::Fence::null(),
                 )
                 .unwrap();
-
-            // println!("{}", present_index);
 
             let clear_values = [
                 vk::ClearValue {
@@ -512,6 +538,12 @@ fn main() {
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_buffer.vulkan_instance], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
                     device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
+
+                    for (object, vertex_buffer, index_buffer) in &object_buffers {
+                        device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vulkan_instance], &[0]);
+                        device.cmd_bind_index_buffer(draw_command_buffer, index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
+                        device.cmd_draw_indexed(draw_command_buffer, object.indices.len() as u32, 1, 0, 0, 1);
+                    }
 
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vulkan_instance], &[0]);
@@ -570,6 +602,11 @@ fn main() {
         vertex_buffer.free(&base.device);
         triangle_vertex_buffer.free(&base.device);
         hud_triangle_vertex_buffer.free(&base.device);
+        
+        for (_, vertex_buffer, index_buffer) in &object_buffers {
+            vertex_buffer.free(&base.device);
+            index_buffer.free(&base.device);
+        }
 
         matrix_buffer.free(&base.device);
 
