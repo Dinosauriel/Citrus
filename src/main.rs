@@ -8,7 +8,8 @@ use std::mem;
 use std::time;
 use glfw::Context;
 use controls::InputState;
-use world;
+use world::*;
+use world::size::*;
 use graphics::shader::*;
 use graphics::object::Vertex;
 use graphics::object::TriangleGraphicsObject;
@@ -173,9 +174,9 @@ fn main() {
         let mut input_state: InputState = Default::default();
 
         // +++++++++++++++
-        let mut world = world::World::new(64, 16);
+        let mut world = World::new();
 
-        let object1 = world::Object::create();
+        let object1 = Object::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 10., 0.));
         world.objects.push(object1);
 
         let mut object_buffers: Vec<(&world::Object, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
@@ -185,42 +186,46 @@ fn main() {
             let index_buffer = buffer::Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
-                (object.indices.len() * std::mem::size_of::<u32>()) as u64,
+                (object.indices().len() * std::mem::size_of::<u32>()) as u64,
                 vk::BufferUsageFlags::INDEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-            index_buffer.fill(&base.device, &object.indices);
+            index_buffer.fill(&base.device, &object.indices());
 
             let vertex_buffer = buffer::Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
-                (object.vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
+                (object.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-            vertex_buffer.fill(&base.device, &object.vertices);
+            vertex_buffer.fill(&base.device, &object.vertices());
 
             object_buffers.push((object, vertex_buffer, index_buffer));
         }
 
+        let world_object =  world.structure.sub_segments[0].as_ref().unwrap().sub_segments[0].as_ref().unwrap().sub_segments[0].as_ref().unwrap().object();
+        let world_indices = world_object.indices();
+        let world_vertices = world_object.vertices();
+
         let index_buffer = buffer::Buffer::create(
             &base.device,
             &base.device_memory_properties,
-            (world.indices().len() * std::mem::size_of::<u32>()) as u64,
+            (world_indices.len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        index_buffer.fill(&base.device, world.indices());
+        index_buffer.fill(&base.device, world_indices);
         // +++++++++++++++
 
         let vertex_buffer = buffer::Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
-                (world.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+                (world_vertices.len() * std::mem::size_of::<Vertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-        vertex_buffer.fill(&base.device, world.vertices());
+        vertex_buffer.fill(&base.device, world_vertices);
         // ++++++++++++++
 
         let triangle = Triangle::new(
@@ -533,7 +538,7 @@ fn main() {
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vulkan_instance], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
-                    device.cmd_draw_indexed(draw_command_buffer, world.indices().len() as u32, 1, 0, 0, 1);
+                    device.cmd_draw_indexed(draw_command_buffer, world_indices.len() as u32, 1, 0, 0, 1);
                     
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_buffer.vulkan_instance], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
@@ -542,7 +547,7 @@ fn main() {
                     for (object, vertex_buffer, index_buffer) in &object_buffers {
                         device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vulkan_instance], &[0]);
                         device.cmd_bind_index_buffer(draw_command_buffer, index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
-                        device.cmd_draw_indexed(draw_command_buffer, object.indices.len() as u32, 1, 0, 0, 1);
+                        device.cmd_draw_indexed(draw_command_buffer, object.indices().len() as u32, 1, 0, 0, 1);
                     }
 
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
