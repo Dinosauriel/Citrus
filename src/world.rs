@@ -48,7 +48,7 @@ impl Default for BlockType {
     }
 }
 
-pub struct Object {
+pub struct BlockObject {
     position: Vec3,
     size: Size3D,
     blocks: Vec<BlockType>,
@@ -56,9 +56,9 @@ pub struct Object {
     pub indices: Vec<u32>,
 }
 
-impl Object {
+impl BlockObject {
     pub fn new(size: Size3D, position: Vec3) -> Self {
-        let mut obj = Object {
+        let mut obj = BlockObject {
             position: position,
             size: size,
             blocks: Vec::with_capacity(size.volume()),
@@ -77,6 +77,7 @@ impl Object {
     }
 
     fn update_indices(&mut self) {
+        self.indices.fill(0);
         for x in 0 .. self.size.x {
             for y in 0 .. self.size.y {
                 for z in 0 .. self.size.z {
@@ -105,9 +106,19 @@ impl Object {
             }
         }
     }
+
+    pub fn num_blocks(&self) -> u32 {
+        let mut n = 0;
+        for block in self.blocks.iter() {
+            if block != &BlockType::NoBlock {
+                n += 1;
+            }
+        }
+        return n;
+    }
 }
 
-impl TriangleGraphicsObject for Object {
+impl TriangleGraphicsObject for BlockObject {
     fn vertices(&self) -> &Vec<Vertex> {
         return &self.vertices;
     }
@@ -118,7 +129,7 @@ impl TriangleGraphicsObject for Object {
 }
 
 pub struct World {
-    pub objects: Vec<Object>,
+    pub objects: Vec<BlockObject>,
     noise: Perlin,
     pub structure: L4Segment,
 }

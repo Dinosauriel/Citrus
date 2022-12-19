@@ -176,10 +176,10 @@ fn main() {
         // +++++++++++++++
         let mut world = World::new();
 
-        let object1 = Object::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 10., 0.));
+        let object1 = BlockObject::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 10., 0.));
         world.objects.push(object1);
 
-        let mut object_buffers: Vec<(&world::Object, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
+        let mut object_buffers: Vec<(&world::BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
         
         for object in &world.objects {
 
@@ -207,6 +207,9 @@ fn main() {
         let world_object =  world.structure.sub_segments[0].as_ref().unwrap().sub_segments[0].as_ref().unwrap().sub_segments[0].as_ref().unwrap().object();
         let world_indices = world_object.indices();
         let world_vertices = world_object.vertices();
+
+        let n = world_object.num_blocks();
+        println!("world has {n} blocks");
 
         let index_buffer = buffer::Buffer::create(
             &base.device,

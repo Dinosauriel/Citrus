@@ -13,8 +13,8 @@ pub struct L1Segment {
 }
 
 impl L1Segment {
-    pub fn object(&self) -> Object {
-        let mut o = Object::new(L1_SEGMENT_SIZE, Vec3::new(0., 0., 0.));
+    pub fn object(&self) -> BlockObject {
+        let mut o = BlockObject::new(L1_SEGMENT_SIZE, Vec3::new(0., 0., 0.));
         o.blocks = self.blocks.to_vec();
         o.update_indices();
         o.update_vertices();
