@@ -454,15 +454,20 @@ fn main() {
             )
             .expect("Unable to create graphics pipeline");
 
-        let mut start_time = time::Instant::now();
+        let mut last_second = time::Instant::now();
         let mut frames = 0;
+        let mut ticks = 0;
+
+        let mut last_tick = time::Instant::now();
+        const SECONDS_PER_TICK: f64 = (1 as f64) / (config::TICK_RATE as f64);
 
         while !base.window.should_close() {
 
-            if start_time.elapsed() >= time::Duration::from_secs(1) {
-                println!("FPS: {}", frames);
-                start_time = time::Instant::now();
+            if last_second.elapsed() >= time::Duration::from_secs(1) {
+                println!("FPS: {}, ticks: {}", frames, ticks);
+                last_second = time::Instant::now();
                 frames = 0;
+                ticks = 0;
             }
 
             base.window.swap_buffers();
@@ -548,16 +553,19 @@ fn main() {
 
             base.swapchain_loader.queue_present(base.present_queue, &present_info).unwrap();
 
-            for (_, event) in glfw::flush_messages(&base.events) {
-                // println!("{:?}", event);
-                input_state.update_from_event(&event);
-            }
-
-            cam.update_from_input_state(&input_state);
-
-            if input_state.escape {
-                base.window.set_should_close(true);
-                println!("escape!");
+            if last_tick.elapsed() >= time::Duration::from_secs_f64(SECONDS_PER_TICK) {
+                ticks += 1;
+                last_tick += time::Duration::from_secs_f64(SECONDS_PER_TICK);
+                for (_, event) in glfw::flush_messages(&base.events) {
+                    // println!("{:?}", event);
+                    input_state.update_from_event(&event);
+                }
+                cam.update_from_input_state(&input_state);
+    
+                if input_state.escape {
+                    base.window.set_should_close(true);
+                    println!("escape!");
+                }
             }
 
             // println!("{:?}", cam.position);
