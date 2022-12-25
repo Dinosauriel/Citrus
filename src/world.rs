@@ -36,6 +36,12 @@ const BLOCK_VERTICES: [[usize; 3]; 8] = [
     [1, 1, 1]
 ];
 
+pub enum Dimension {
+    X,
+    Y,
+    Z
+}
+
 #[derive(Clone, PartialEq, Eq, Copy)]
 pub enum BlockType {
     NoBlock,
@@ -148,8 +154,8 @@ impl World {
     }
 
     fn populate(&mut self) {
-        for x in 0 .. 4 * L2_SIZE_BL.x {
-            for z in 0 .. 4 * L2_SIZE_BL.z {
+        for x in 0 .. L2_SIZE_BL.x {
+            for z in 0 .. L2_SIZE_BL.z {
                 let y = (5. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as usize;
                 self.set_block(x, y, z, BlockType::Grass);
             }
@@ -182,9 +188,9 @@ impl World {
     }
 
     pub fn get_block(self, x: usize, y: usize, z: usize) -> BlockType {
-        let (l4x, l3x, l2x, l1x) = Self::decompose(x);
-        let (l4y, l3y, l2y, l1y) = Self::decompose(y);
-        let (l4z, l3z, l2z, l1z) = Self::decompose(z);
+        let (l4x, l3x, l2x, l1x) = Self::decompose(x, Dimension::X);
+        let (l4y, l3y, l2y, l1y) = Self::decompose(y, Dimension::Y);
+        let (l4z, l3z, l2z, l1z) = Self::decompose(z, Dimension::Z);
 
         let l4coords = L4_SIZE.coordinates_1_d(l4x, l4y, l4z);
         let l3coords = L3_SIZE.coordinates_1_d(l3x, l3y, l3z);
@@ -207,9 +213,9 @@ impl World {
             return;
         }
 
-        let (l4x, l3x, l2x, l1x) = Self::decompose(x);
-        let (l4y, l3y, l2y, l1y) = Self::decompose(y);
-        let (l4z, l3z, l2z, l1z) = Self::decompose(z);
+        let (l4x, l3x, l2x, l1x) = Self::decompose(x, Dimension::X);
+        let (l4y, l3y, l2y, l1y) = Self::decompose(y, Dimension::Y);
+        let (l4z, l3z, l2z, l1z) = Self::decompose(z, Dimension::Z);
 
         let l4coords = L4_SIZE.coordinates_1_d(l4x, l4y, l4z);
         let l3coords = L3_SIZE.coordinates_1_d(l3x, l3y, l3z);
@@ -222,11 +228,31 @@ impl World {
         l1.blocks[l1coords] = block;
     }
 
-    fn decompose(c: usize) -> (usize, usize, usize, usize) {
-        let l3c = c >> 9 & 0x7;
-        let l2c = c >> 6 & 0x7;
-        let l1c = c >> 3 & 0x7;
-        let bc = c & 0x7;
+    fn decompose(c: usize, along: Dimension) -> (usize, usize, usize, usize) {
+        let l3c;
+        let l2c;
+        let l1c;
+        let bc;
+        match along {
+            Dimension::X => {
+                l3c = (c / L3_SIZE_BL.x) % L4_SIZE.x;
+                l2c = (c / L2_SIZE_BL.x) % L3_SIZE.x;
+                l1c = (c / L1_SIZE_BL.x) % L2_SIZE.x;
+                bc = c % L1_SIZE.x;
+            }
+            Dimension::Y => {
+                l3c = (c / L3_SIZE_BL.y) % L4_SIZE.y;
+                l2c = (c / L2_SIZE_BL.y) % L3_SIZE.y;
+                l1c = (c / L1_SIZE_BL.y) % L2_SIZE.y;
+                bc = c % L1_SIZE.y;
+            }
+            Dimension::Z => {
+                l3c = (c / L3_SIZE_BL.z) % L4_SIZE.z;
+                l2c = (c / L2_SIZE_BL.z) % L3_SIZE.z;
+                l1c = (c / L1_SIZE_BL.z) % L2_SIZE.z;
+                bc = c % L1_SIZE.z;
+            }
+        }
         return (l3c, l2c, l1c, bc);
     }
 }

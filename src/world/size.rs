@@ -57,7 +57,7 @@ impl Size3D {
 }
 
 // size of sub_segment space
-pub const L1_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
+pub const L1_SIZE: Size3D = Size3D { x: 32, y: 4, z: 32 };
 pub const L2_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
 pub const L3_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
 pub const L4_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
