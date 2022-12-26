@@ -80,19 +80,13 @@ impl BlockObject {
     }
 
     pub fn update_indices(&mut self) {
-        self.indices = vec![0; 36 * self.size.volume()];
-
-        self.indices.fill(0);
-        for x in 0 .. self.size.x {
-            for y in 0 .. self.size.y {
-                for z in 0 .. self.size.z {
-                    let coordinates = self.size.coordinates_1_d(x, y, z);
-                    if self.blocks[coordinates] == BlockType::Grass {
-                        for i in 0 .. 36 {
-                            let [d_x, d_y, d_z] = BLOCK_VERTICES[BLOCK_TRIANGLE_INDICES[i]];
-                            self.indices[coordinates * 36 + i] = self.size.vertex_coordinates_1_d(x + d_x, y + d_y, z + d_z) as u32;
-                        }
-                    }
+        let block_list = self.block_list();
+        self.indices = vec![0; 36 * block_list.len()];
+        for (j, &(x, y, z)) in block_list.iter().enumerate() {
+            if self.blocks[self.size.coordinates_1_d(x, y, z)] == BlockType::Grass {
+                for i in 0 .. 36 {
+                    let [d_x, d_y, d_z] = BLOCK_VERTICES[BLOCK_TRIANGLE_INDICES[i]];
+                    self.indices[j * 36 + i] = self.size.vertex_coordinates_1_d(x + d_x, y + d_y, z + d_z) as u32;
                 }
             }
         }
@@ -111,6 +105,16 @@ impl BlockObject {
                 }
             }
         }
+    }
+
+    fn block_list(&self) -> Vec<(usize, usize, usize)> {
+        let mut list = vec![(0, 0, 0); 0];
+        for (x, y, z) in self.size {
+            if self.blocks[self.size.coordinates_1_d(x, y, z)] != BlockType::NoBlock {
+                list.push((x, y, z));
+            }
+        }
+        return list; 
     }
 
     pub fn num_blocks(&self) -> u32 {
