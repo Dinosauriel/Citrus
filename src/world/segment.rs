@@ -10,8 +10,7 @@ pub struct L1Segment {
 
 impl L1Segment {
     pub fn object(&self, pos: Vec3) -> BlockObject {
-        let mut o = BlockObject::new(L1_SIZE, pos);
-        o.blocks = self.blocks.to_vec();
+        let mut o = BlockObject::new(L1_SIZE, pos, self.blocks.to_vec());
         o.update_indices();
         o.update_vertices();
         return o;

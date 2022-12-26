@@ -173,13 +173,22 @@ fn main() {
         let mut cam: camera::Camera = Default::default();
         let mut input_state: InputState = Default::default();
 
+        let ray = world::ray::Ray { origin: cam.position, direction: cam.direction };
+        print!("camera intersects:");
+        for c in ray.intersected_blocks(5) {
+            print!("({}, {}, {}) ", c.x, c.y, c.z);
+        }
+        println!();
+
         // +++++++++++++++
         println!("worldgen");
 
 
         let mut world = World::new();
 
-        let object1 = BlockObject::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 10., 0.));
+        let mut object1 = BlockObject::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 10., 0.), vec![BlockType::Grass; 8]);
+        object1.update_indices();
+        object1.update_vertices();
         world.objects.push(object1);
 
         let mut object_buffers: Vec<(&world::BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
@@ -460,11 +469,12 @@ fn main() {
 
         let mut last_tick = time::Instant::now();
         const SECONDS_PER_TICK: f64 = (1 as f64) / (config::TICK_RATE as f64);
+        println!("target seconds per tick: {:?}", time::Duration::from_secs_f64(SECONDS_PER_TICK));
 
         while !base.window.should_close() {
 
             if last_second.elapsed() >= time::Duration::from_secs(1) {
-                println!("FPS: {}, ticks: {}", frames, ticks);
+                println!("FPS: {}, TPS: {}", frames, ticks);
                 last_second = time::Instant::now();
                 frames = 0;
                 ticks = 0;

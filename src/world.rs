@@ -1,4 +1,5 @@
 mod segment;
+pub mod ray;
 pub mod size;
 
 use noise::{NoiseFn, Perlin};
@@ -6,7 +7,6 @@ use crate::graphics::object::Vertex;
 use crate::graphics::object::TriangleGraphicsObject;
 use size::*;
 use segment::*;
-
 use glam::Vec3;
 
 const BLOCK_TRIANGLE_INDICES: [usize; 36] = [
@@ -42,6 +42,12 @@ pub enum Dimension {
     Z
 }
 
+pub struct Coords {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64
+}
+
 #[derive(Clone, PartialEq, Eq, Copy)]
 pub enum BlockType {
     NoBlock,
@@ -63,26 +69,19 @@ pub struct BlockObject {
 }
 
 impl BlockObject {
-    pub fn new(size: Size3D, position: Vec3) -> Self {
-        let mut obj = BlockObject {
-            position: position,
-            size: size,
-            blocks: Vec::with_capacity(size.volume()),
-            vertices: Vec::with_capacity(size.num_vertices()),
-            indices: Vec::with_capacity(36 * size.volume()),
-        };
-
-        obj.blocks.resize(obj.blocks.capacity(), BlockType::Grass);
-        obj.indices.resize(obj.indices.capacity(), 0);
-        obj.vertices.resize_with(obj.vertices.capacity(), Default::default);
-
-        obj.update_vertices();
-        obj.update_indices();
-
-        return obj;
+    pub fn new(size: Size3D, position: Vec3, blocks: Vec<BlockType>) -> Self {
+        BlockObject {
+            position,
+            size,
+            blocks,
+            vertices: Vec::new(),
+            indices: Vec::new(),
+        }
     }
 
-    fn update_indices(&mut self) {
+    pub fn update_indices(&mut self) {
+        self.indices = vec![0; 36 * self.size.volume()];
+
         self.indices.fill(0);
         for x in 0 .. self.size.x {
             for y in 0 .. self.size.y {
@@ -99,7 +98,8 @@ impl BlockObject {
         }
     }
 
-    fn update_vertices(&mut self) {
+    pub fn update_vertices(&mut self) {
+        self.vertices = vec![Vertex::default(); self.size.num_vertices()];
         for x in 0 .. self.size.x + 1 {
             for y in 0 .. self.size.y + 1 {
                 for z in 0 .. self.size.z + 1 {
@@ -164,9 +164,9 @@ impl World {
         println!("blocks set");
 
         for (l3x, l3y, l3z) in L4_SIZE {
-            print!("{:?} contains ", (l3x, l3y, l3z));
+            // print!("{:?} contains ", (l3x, l3y, l3z));
             if let Some(l3) = &self.structure.sub_segments[L4_SIZE.coordinates_1_d(l3x, l3y, l3z)] {
-                println!("Some");
+                // println!("Some");
                 for (l2x, l2y, l2z) in L3_SIZE {
                     if let Some(l2) = &l3.sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z)] {
                         for (l1x, l1y, l1z) in L2_SIZE {
@@ -181,8 +181,6 @@ impl World {
                         }
                     }
                 }
-            } else {
-                println!("None");
             }
         }
     }
