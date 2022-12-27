@@ -29,24 +29,30 @@ impl Camera {
 
     pub fn update_from_input_state(&mut self, input_state: &controls::InputState) {
         // println!("direction: {}, pitch: {}, yaw: {}", self.direction, self.pitch, self.yaw);
+        let speed;
+        if input_state.l_shift {
+            speed = 0.2;
+        } else {
+            speed = 0.1;
+        }
 
         if input_state.w {
-            self.ray.origin += 0.1 * self.ray.direction;
+            self.ray.origin += speed * self.ray.direction;
         }
         if input_state.a {
-            self.ray.origin += 0.1 * self.ray.direction.cross(UP).normalize();
+            self.ray.origin += speed * self.ray.direction.cross(UP).normalize();
         }
         if input_state.s {
-            self.ray.origin -= 0.1 * self.ray.direction;
+            self.ray.origin -= speed * self.ray.direction;
         }
         if input_state.d {
-            self.ray.origin -= 0.1 * self.ray.direction.cross(UP).normalize();
+            self.ray.origin -= speed * self.ray.direction.cross(UP).normalize();
         }
         if input_state.l_ctrl {
-            self.ray.origin -= 0.1 * UP;
+            self.ray.origin -= speed * UP;
         }
         if input_state.space {
-            self.ray.origin += 0.1 * UP;
+            self.ray.origin += speed * UP;
         }
         if let Some(prev_input_state) = self.prev_input_state_opt {
             if prev_input_state.cursor_did_move {

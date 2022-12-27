@@ -35,11 +35,67 @@ macro_rules! offset_of {
     }};
 }
 
+fn create_debug_callback(entry: &Entry, instance: &Instance) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
+    let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+    .message_severity(
+        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+            | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+            | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+    )
+    .message_type(
+        vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+            | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+            | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+    )
+    .pfn_user_callback(Some(vulkan_debug_callback));
+
+    let debug_utils_loader = DebugUtils::new(entry, instance);
+    unsafe {
+        let debug_call_back = debug_utils_loader
+            .create_debug_utils_messenger(&debug_info, None)
+            .unwrap();
+        return (debug_utils_loader, debug_call_back);
+    }
+}
+
+unsafe fn create_instance(window: &glfw::Window, entry: &Entry) -> Instance {
+    let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
+
+    let layer_names = [CStr::from_bytes_with_nul_unchecked(
+        b"VK_LAYER_KHRONOS_validation\0",
+    )];
+    let layers_names_raw: Vec<*const c_char> = layer_names
+        .iter()
+        .map(|raw_name| raw_name.as_ptr())
+        .collect();
+
+    let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
+    let mut extension_names_raw = surface_extensions.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
+    extension_names_raw.push(DebugUtils::name().as_ptr());
+
+    let appinfo = vk::ApplicationInfo::builder()
+        .application_name(app_name)
+        .application_version(0)
+        .engine_name(app_name)
+        .engine_version(0)
+        .api_version(vk::make_api_version(0, 1, 0, 0));
+
+    let create_info = vk::InstanceCreateInfo::builder()
+        .application_info(&appinfo)
+        .enabled_layer_names(&layers_names_raw)
+        .enabled_extension_names(&extension_names_raw);
+
+    let instance: Instance = entry
+        .create_instance(&create_info, None)
+        .expect("Instance creation error");
+    return instance;
+}
+
 /// Helper function for submitting command buffers. Immediately waits for the fence before the command buffer
 /// is executed. That way we can delay the waiting for the fences by 1 frame which is good for performance.
 /// Make sure to create the fence in a signaled state on the first use.
 #[allow(clippy::too_many_arguments)]
-pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
+pub unsafe fn submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
     device: &Device,
     command_buffer: vk::CommandBuffer,
     command_buffer_reuse_fence: vk::Fence,
@@ -185,54 +241,11 @@ impl ExampleBase {
         window.set_cursor_pos_polling(true);
 
         let entry = Entry::linked();
-        let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
-
-        let layer_names = [CStr::from_bytes_with_nul_unchecked(
-            b"VK_LAYER_KHRONOS_validation\0",
-        )];
-        let layers_names_raw: Vec<*const c_char> = layer_names
-            .iter()
-            .map(|raw_name| raw_name.as_ptr())
-            .collect();
-
-        let surface_extensions = ash_window::enumerate_required_extensions(&window).unwrap();
-        let mut extension_names_raw = surface_extensions.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
-        extension_names_raw.push(DebugUtils::name().as_ptr());
-
-        let appinfo = vk::ApplicationInfo::builder()
-            .application_name(app_name)
-            .application_version(0)
-            .engine_name(app_name)
-            .engine_version(0)
-            .api_version(vk::make_api_version(0, 1, 0, 0));
-
-        let create_info = vk::InstanceCreateInfo::builder()
-            .application_info(&appinfo)
-            .enabled_layer_names(&layers_names_raw)
-            .enabled_extension_names(&extension_names_raw);
-
-        let instance: Instance = entry
-            .create_instance(&create_info, None)
-            .expect("Instance creation error");
-
-        let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .message_severity(
-                vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
-            )
-            .message_type(
-                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-            )
-            .pfn_user_callback(Some(vulkan_debug_callback));
-
-        let debug_utils_loader = DebugUtils::new(&entry, &instance);
-        let debug_call_back = debug_utils_loader
-            .create_debug_utils_messenger(&debug_info, None)
-            .unwrap();
+        let instance = create_instance(&window, &entry);
         let surface = ash_window::create_surface(&entry, &instance, &window, None).unwrap();
+
+        let (debug_utils_loader, debug_call_back) = create_debug_callback(&entry, &instance);
+
         let pdevices = instance
             .enumerate_physical_devices()
             .expect("Physical device error");
@@ -244,7 +257,7 @@ impl ExampleBase {
                     .get_physical_device_queue_family_properties(*pdevice)
                     .iter()
                     .enumerate()
-                    .filter_map(|(index, info)| {
+                    .find_map(|(index, info)| {
                         let supports_graphic_and_surface =
                             info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
                                 && surface_loader
@@ -260,7 +273,6 @@ impl ExampleBase {
                             None
                         }
                     })
-                    .next()
             })
             .flatten()
             .next()
@@ -297,10 +309,8 @@ impl ExampleBase {
             .get_physical_device_surface_capabilities(pdevice, surface)
             .unwrap();
         let mut desired_image_count = surface_capabilities.min_image_count + 1;
-        if surface_capabilities.max_image_count > 0
-            && desired_image_count > surface_capabilities.max_image_count
-        {
-            desired_image_count = surface_capabilities.max_image_count;
+        if surface_capabilities.max_image_count > 0 {
+            desired_image_count = desired_image_count.min(surface_capabilities.max_image_count);
         }
         let surface_resolution = match surface_capabilities.current_extent.width {
             std::u32::MAX => vk::Extent2D {
@@ -433,7 +443,7 @@ impl ExampleBase {
             .create_fence(&fence_create_info, None)
             .expect("Create fence failed.");
 
-        record_submit_commandbuffer(
+        submit_commandbuffer(
             &device,
             setup_command_buffer,
             setup_commands_reuse_fence,
@@ -547,6 +557,5 @@ impl Drop for ExampleBase {
             self.debug_utils_loader.destroy_debug_utils_messenger(self.debug_call_back, None);
             self.instance.destroy_instance(None);
         }
-        println!("drop!");
     }
 }
