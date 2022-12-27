@@ -22,7 +22,7 @@ impl Default for L1Segment {
         let mut blocks = Vec::new();
         blocks.resize(L1_SIZE.volume(), BlockType::NoBlock);
         L1Segment {
-            blocks: blocks,
+            blocks,
         }
     }
 }
@@ -47,7 +47,7 @@ impl Default for L2Segment {
         let mut sub_segments = Vec::new();
         sub_segments.resize(L2_SIZE.volume(), None);
         L2Segment {
-            sub_segments: sub_segments,
+            sub_segments,
         }
     }
 }
@@ -62,7 +62,7 @@ impl Default for L3Segment {
         let mut sub_segments = Vec::new();
         sub_segments.resize(L3_SIZE.volume(), None);
         L3Segment {
-            sub_segments: sub_segments,
+            sub_segments,
         }
     }
 }
@@ -78,7 +78,7 @@ impl Default for L4Segment {
         let mut sub_segments = Vec::new();
         sub_segments.resize(L4_SIZE.volume(), None);
         L4Segment {
-            sub_segments: sub_segments,
+            sub_segments,
         }
     }
 }

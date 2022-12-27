@@ -10,10 +10,9 @@ use glfw::Context;
 use controls::InputState;
 use world::*;
 use world::size::*;
+use world::object::*;
 use graphics::shader::*;
-use graphics::object::Vertex;
-use graphics::object::TriangleGraphicsObject;
-use graphics::object::Triangle;
+use graphics::object::*;
 use graphics::buffer;
 
 #[derive(Clone, Debug, Copy)]
@@ -94,7 +93,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
 }
 
 unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
-    let view = Mat4::look_at_rh(cam.position, cam.position + cam.direction, camera::UP);
+    let view = Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, camera::UP);
     // let view = Mat4::look_at_rh(- cam.direction * 2., glam::Vec3::new(0., 0., 0.), camera::UP);
     let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 100.);
 
@@ -170,15 +169,8 @@ fn main() {
             })
             .collect();
 
-        let mut cam: camera::Camera = Default::default();
-        let mut input_state: InputState = Default::default();
-
-        let ray = world::ray::Ray { origin: cam.position, direction: cam.direction };
-        print!("camera intersects:");
-        for c in ray.intersected_blocks(5) {
-            print!("({}, {}, {}) ", c.x, c.y, c.z);
-        }
-        println!();
+        let mut cam = camera::Camera::default();
+        let mut input_state = InputState::default();
 
         // +++++++++++++++
         println!("worldgen");
@@ -191,7 +183,7 @@ fn main() {
         object1.update_vertices();
         world.objects.push(object1);
 
-        let mut object_buffers: Vec<(&world::BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
+        let mut object_buffers: Vec<(&BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
         
         for object in &world.objects {
 
@@ -478,6 +470,12 @@ fn main() {
                 last_second = time::Instant::now();
                 frames = 0;
                 ticks = 0;
+
+                print!("camera intersects:");
+                for c in cam.ray.intersected_blocks(5) {
+                    print!("({}, {}, {}) ", c.x, c.y, c.z);
+                }
+                println!();
             }
 
             base.window.swap_buffers();
