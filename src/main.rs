@@ -14,6 +14,8 @@ use world::object::*;
 use graphics::shader::*;
 use graphics::object::*;
 use graphics::buffer;
+use graphics::state::GraphicState;
+use graphics::state::submit_commandbuffer;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
@@ -92,7 +94,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
     return descriptor_sets;
 }
 
-fn create_render_pass(base: &ExampleBase) -> vk::RenderPass {
+fn create_render_pass(base: &GraphicState) -> vk::RenderPass {
     let renderpass_attachments = [
         vk::AttachmentDescription {
             format: base.surface_format.format,
@@ -159,7 +161,7 @@ unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
 
 fn main() {
     unsafe {
-        let mut base = ExampleBase::new(1920, 1080);
+        let mut base = GraphicState::new(1920, 1080);
 
         let renderpass = create_render_pass(&base);
 
