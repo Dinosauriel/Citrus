@@ -13,6 +13,9 @@ pub mod graphics {
 }
 pub mod world;
 pub mod config;
+pub mod ui {
+    pub mod text;
+}
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]

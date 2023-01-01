@@ -2,6 +2,7 @@ mod segment;
 pub mod object;
 pub mod ray;
 pub mod size;
+pub mod block;
 
 use noise::{NoiseFn, Perlin};
 use crate::graphics::object::Vertex;
@@ -9,6 +10,7 @@ use crate::graphics::object::TriangleGraphicsObject;
 use object::*;
 use size::*;
 use segment::*;
+use block::*;
 use glam::Vec3;
 
 const BLOCK_TRIANGLE_INDICES: [usize; 36] = [
@@ -48,18 +50,6 @@ pub struct Coords {
     pub x: i64,
     pub y: i64,
     pub z: i64
-}
-
-#[derive(Clone, PartialEq, Eq, Copy)]
-pub enum BlockType {
-    NoBlock,
-    Grass
-}
-
-impl Default for BlockType {
-    fn default() -> Self {
-        return Self::NoBlock;
-    }
 }
 
 pub struct World {

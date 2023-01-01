@@ -1,4 +1,5 @@
 use crate::world::*;
+use crate::world::block::*;
 
 pub struct BlockObject {
     position: Vec3,

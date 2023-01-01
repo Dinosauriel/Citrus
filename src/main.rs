@@ -11,6 +11,7 @@ use controls::InputState;
 use world::*;
 use world::size::*;
 use world::object::*;
+use world::block::*;
 use graphics::shader::*;
 use graphics::object::*;
 use graphics::buffer;
