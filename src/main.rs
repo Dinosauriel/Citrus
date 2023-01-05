@@ -186,6 +186,7 @@ fn main() {
         // +++++++++++++++
         println!("worldgen");
 
+        ui::text::load_font("./src/assets/DejaVuSansMono.ttf");
 
         let mut world = World::new();
 

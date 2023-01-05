@@ -10,6 +10,7 @@ pub mod graphics {
     pub mod shader;
     pub mod object;
     pub mod buffer;
+    pub mod texture;
 }
 pub mod world;
 pub mod config;
