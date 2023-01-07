@@ -62,7 +62,7 @@ impl World {
     pub fn new() -> Self {
         let mut w = World {
             objects: Vec::new(),
-            noise: Perlin::new(),
+            noise: Perlin::new(12),
             structure: L4Segment::default()
         };
 
