@@ -9,6 +9,7 @@ use ash::extensions::{
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use glfw::Context;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use crate::find_memorytype_index;
 use crate::vulkan_debug_callback;
@@ -72,9 +73,8 @@ unsafe fn create_instance(window: &glfw::Window, entry: &Entry) -> Instance {
         .map(|raw_name| raw_name.as_ptr())
         .collect();
 
-    let surface_extensions = ash_window::enumerate_required_extensions(window).unwrap();
-    let mut extension_names_raw = surface_extensions.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
-    extension_names_raw.push(DebugUtils::name().as_ptr());
+    let mut surface_extensions = ash_window::enumerate_required_extensions(window.raw_display_handle()).unwrap().to_vec();
+    surface_extensions.push(DebugUtils::name().as_ptr());
 
     let appinfo = vk::ApplicationInfo::builder()
         .application_name(app_name)
@@ -86,7 +86,7 @@ unsafe fn create_instance(window: &glfw::Window, entry: &Entry) -> Instance {
     let create_info = vk::InstanceCreateInfo::builder()
         .application_info(&appinfo)
         .enabled_layer_names(&layers_names_raw)
-        .enabled_extension_names(&extension_names_raw);
+        .enabled_extension_names(&surface_extensions);
 
     let instance: Instance = entry
         .create_instance(&create_info, None)
@@ -185,7 +185,7 @@ pub struct GraphicState {
 
 impl GraphicState {
     pub unsafe fn new(window_width: u32, window_height: u32) -> Self {
-        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         // glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
 
         let (mut window, events) = glfw.create_window(window_width, window_height, "Teardown", glfw::WindowMode::Windowed).expect("failed to create glfw window");
@@ -197,7 +197,7 @@ impl GraphicState {
 
         let entry = Entry::linked();
         let instance = create_instance(&window, &entry);
-        let surface = ash_window::create_surface(&entry, &instance, &window, None).unwrap();
+        let surface = ash_window::create_surface(&entry, &instance, window.raw_display_handle(), window.raw_window_handle(), None).unwrap();
 
         let (debug_utils_loader, debug_call_back) = create_debug_callback(&entry, &instance);
 
