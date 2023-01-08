@@ -1,4 +1,5 @@
 use ash::vk;
+use citrus::graphics::texture::Texture;
 use glam::Mat4;
 use citrus::*;
 use std::default::Default;
@@ -35,9 +36,19 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
         ..Default::default()
     };
 
+    let sampler_layout_binding = vk::DescriptorSetLayoutBinding {
+        binding: 1,
+        descriptor_count: 1,
+        descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+        stage_flags: vk::ShaderStageFlags::FRAGMENT,
+        ..Default::default()
+    };
+
+    let bindings = [ubo_layout_binding, sampler_layout_binding];
+
     let layout_info = vk::DescriptorSetLayoutCreateInfo {
-        binding_count: 1,
-        p_bindings: &ubo_layout_binding,
+        binding_count: bindings.len() as u32,
+        p_bindings: bindings.as_ptr(),
         ..Default::default()
     };
 
@@ -46,15 +57,23 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
 }
 
 unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
-    let pool_size = vk::DescriptorPoolSize {
+    let uniform_pool_size = vk::DescriptorPoolSize {
         ty: vk::DescriptorType::UNIFORM_BUFFER,
         descriptor_count: 1,
         ..Default::default()
     };
 
+    let sampler_pool_size = vk::DescriptorPoolSize {
+        ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+        descriptor_count: 1,
+        ..Default::default()
+    };
+
+    let pool_sizes = [uniform_pool_size, sampler_pool_size];
+
     let pool_info = vk::DescriptorPoolCreateInfo {
-        pool_size_count: 1,
-        p_pool_sizes: &pool_size,
+        pool_size_count: pool_sizes.len() as u32,
+        p_pool_sizes: pool_sizes.as_ptr(),
         max_sets: 1,
         ..Default::default()
     };
@@ -63,7 +82,7 @@ unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
     return descriptor_pool;
 }
 
-unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, uni_buffer: vk::Buffer, buffer_size: u64) -> Vec<vk::DescriptorSet> {
+unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, uni_buffer: vk::Buffer, texture: &Texture, buffer_size: u64) -> Vec<vk::DescriptorSet> {
     let alloc_info = vk::DescriptorSetAllocateInfo {
         descriptor_pool: pool,
         descriptor_set_count: 1,
@@ -80,6 +99,13 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
         ..Default::default()
     };
 
+    let image_info = vk::DescriptorImageInfo {
+        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        image_view: texture.image_view.vk_image_view,
+        sampler: texture.sampler.vk_sampler,
+        ..Default::default()
+    };
+
     let descriptor_write = vk::WriteDescriptorSet {
         dst_set: descriptor_sets[0],
         dst_binding: 0,
@@ -90,7 +116,17 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
         ..Default::default()
     };
 
-    device.update_descriptor_sets(&[descriptor_write], &[]);
+    let sampler_descriptor_write = vk::WriteDescriptorSet {
+        dst_set: descriptor_sets[0],
+        dst_binding: 1,
+        dst_array_element: 0,
+        descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+        descriptor_count: 1,
+        p_image_info: &image_info,
+        ..Default::default()
+    };
+
+    device.update_descriptor_sets(&[descriptor_write, sampler_descriptor_write], &[]);
 
     return descriptor_sets;
 }
@@ -186,7 +222,7 @@ fn main() {
         // +++++++++++++++
         println!("worldgen");
 
-        ui::text::load_font("./src/assets/DejaVuSansMono.ttf");
+        let deja_vu_texture = ui::text::load_font(&base, "./src/assets/DejaVuSansMono.ttf");
 
         let mut world = World::new();
 
@@ -223,50 +259,56 @@ fn main() {
         let n = world.objects.len();
         println!("{n} objects found");
 
-        let triangle = Triangle::new(
+        let triangle = Triangle::create(
             &Vertex {
                 pos: [0., 2., 0., 1.],
-                color: [1., 0., 1., 1.]
+                color: [1., 0., 1., 1.],
+                tex_coord: [0., 0.],
             },
             &Vertex {
                 pos: [0., -2., 0., 1.],
-                color: [1., 0., 0., 1.]
+                color: [1., 0., 0., 1.],
+                tex_coord: [0., 0.],
             },
             &Vertex {
                 pos: [1., 0., 0., 0.],
-                color: [1., 0., 0., 1.]
+                color: [1., 0., 0., 1.],
+                tex_coord: [0., 0.],
             },
         );
-
+        
         let triangle_index_buffer = buffer::Buffer::create(
             &base.device,
             &base.device_memory_properties,
             (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        triangle_index_buffer.fill(&base.device, triangle.indices());
-
-        let triangle_vertex_buffer = buffer::Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+            triangle_index_buffer.fill(&base.device, triangle.indices());
+            
+            let triangle_vertex_buffer = buffer::Buffer::create(
+                &base.device,
+                &base.device_memory_properties,
+                (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        triangle_vertex_buffer.fill(&base.device, triangle.vertices());
-        // ++++++++++++++
-
-        let hud_triangle = Triangle::new(
-            &Vertex {
-                pos: [0.5, 0., 0., 1.],
-                color: [1., 0., 1., 1.]
-            },
-            &Vertex {
-                pos: [-0.5, 0., 0., 1.],
-                color: [1., 0., 0., 1.]
-            },
-            &Vertex {
-                pos: [0., 0.5, 0., 1.],
-                color: [1., 1., 0., 1.]
+            triangle_vertex_buffer.fill(&base.device, triangle.vertices());
+            // ++++++++++++++
+            
+            let hud_triangle = Triangle::create(
+                &Vertex {
+                    pos: [0.5, 0., 0., 1.],
+                    color: [1., 0., 1., 1.],
+                    tex_coord: [0., 0.],
+                },
+                &Vertex {
+                    pos: [-0.5, 0., 0., 1.],
+                    color: [1., 0., 0., 1.],
+                    tex_coord: [4., 0.],
+                },
+                &Vertex {
+                    pos: [0., 0.5, 0., 1.],
+                    color: [1., 1., 0., 1.],
+                    tex_coord: [0., 4.],
             },
         );
         let hud_triangle_index_buffer = buffer::Buffer::create(
@@ -296,7 +338,7 @@ fn main() {
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
-        let descriptor_sets = create_descriptor_sets(&base.device, descriptor_pool, descriptor_set_layout, matrix_buffer.vulkan_instance, mem::size_of::<UniformBufferObject>() as u64);
+        let descriptor_sets = create_descriptor_sets(&base.device, descriptor_pool, descriptor_set_layout, matrix_buffer.vk_buffer, &deja_vu_texture, mem::size_of::<UniformBufferObject>() as u64);
         let layout_create_info = vk::PipelineLayoutCreateInfo {
             set_layout_count: 1,
             p_set_layouts: &descriptor_set_layout,
@@ -331,6 +373,7 @@ fn main() {
             stride: mem::size_of::<Vertex>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }];
+
         let vertex_input_attribute_descriptions = [
             vk::VertexInputAttributeDescription {
                 location: 0,
@@ -344,6 +387,12 @@ fn main() {
                 format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Vertex, color) as u32,
             },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Vertex, tex_coord) as u32,
+            }
         ];
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
@@ -392,7 +441,7 @@ fn main() {
         let rasterization_info = vk::PipelineRasterizationStateCreateInfo {
             front_face: vk::FrontFace::COUNTER_CLOCKWISE,
             line_width: 1.0,
-            polygon_mode: vk::PolygonMode::LINE,
+            polygon_mode: vk::PolygonMode::FILL,
             cull_mode: vk::CullModeFlags::BACK,
             ..Default::default()
         };
@@ -544,19 +593,19 @@ fn main() {
                     device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
                     
-                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_buffer.vulkan_instance], &[0]);
-                    device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle_vertex_buffer.vk_buffer], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, triangle_index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
                     device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
 
                     for (object, vertex_buffer, index_buffer) in &object_buffers {
-                        device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vulkan_instance], &[0]);
-                        device.cmd_bind_index_buffer(draw_command_buffer, index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
+                        device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[vertex_buffer.vk_buffer], &[0]);
+                        device.cmd_bind_index_buffer(draw_command_buffer, index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
                         device.cmd_draw_indexed(draw_command_buffer, object.indices().len() as u32, 1, 0, 0, 1);
                     }
 
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
-                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vulkan_instance], &[0]);
-                    device.cmd_bind_index_buffer(draw_command_buffer, hud_triangle_index_buffer.vulkan_instance, 0, vk::IndexType::UINT32);
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vk_buffer], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, hud_triangle_index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
                     device.cmd_draw_indexed(draw_command_buffer, hud_triangle.indices().len() as u32, 1, 0, 0, 1);
 
                     device.cmd_end_render_pass(draw_command_buffer);
@@ -613,6 +662,8 @@ fn main() {
         triangle_vertex_buffer.free(&base.device);
         hud_triangle_vertex_buffer.free(&base.device);
         
+        deja_vu_texture.free(&base);
+
         for (_, vertex_buffer, index_buffer) in &object_buffers {
             vertex_buffer.free(&base.device);
             index_buffer.free(&base.device);

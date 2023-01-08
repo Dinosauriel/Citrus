@@ -119,9 +119,12 @@ fn create_debug_callback(entry: &Entry, instance: &Instance) -> (DebugUtils, vk:
 
 unsafe fn create_device(instance: &Instance, pdevice: PhysicalDevice, queue_family_index: u32) -> Device {
     let device_extension_names_raw = [Swapchain::name().as_ptr()];
+
+    //the features that we request from the device
     let features = vk::PhysicalDeviceFeatures {
         shader_clip_distance: 1,
         fill_mode_non_solid: 1,
+        sampler_anisotropy: vk::TRUE,
         ..Default::default()
     };
     let priorities = [1.0];
@@ -352,8 +355,8 @@ impl GraphicState {
         let depth_image = device.create_image(&depth_image_create_info, None).unwrap();
         let depth_image_memory_req = device.get_image_memory_requirements(depth_image);
         let depth_image_memory_index = find_memorytype_index(
-            &depth_image_memory_req,
             &device_memory_properties,
+            &depth_image_memory_req,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )
         .expect("Unable to find suitable memory index for depth image.");

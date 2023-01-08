@@ -3,11 +3,7 @@
 pub struct Vertex {
     pub pos: [f32; 4],
     pub color: [f32; 4],
-}
-
-pub struct Vertex2D {
-    pub pos: [f32; 3],
-    pub color: [f32; 4]
+    pub tex_coord: [f32; 2],
 }
 
 pub trait TriangleGraphicsObject {
@@ -21,12 +17,11 @@ pub struct Triangle {
 }
 
 impl Triangle {
-    pub fn new(point_a: &Vertex, point_b: &Vertex, point_c: &Vertex) -> Triangle {
-        return Triangle {
+    pub fn create(point_a: &Vertex, point_b: &Vertex, point_c: &Vertex) -> Triangle {
+        Triangle {
             vertices:  vec![*point_a, *point_b, *point_c],
             indices: vec![0, 1, 2]
-        };
-
+        }
     }
 }
 

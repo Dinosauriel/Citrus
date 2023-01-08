@@ -64,8 +64,8 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 pub fn find_memorytype_index(
-    memory_req: &vk::MemoryRequirements,
     memory_prop: &vk::PhysicalDeviceMemoryProperties,
+    memory_req: &vk::MemoryRequirements,
     flags: vk::MemoryPropertyFlags,
 ) -> Option<u32> {
     memory_prop.memory_types[..memory_prop.memory_type_count as _]

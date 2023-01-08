@@ -40,7 +40,8 @@ impl BlockObject {
                 for z in 0 .. self.size.z + 1 {
                     let vertex = Vertex {
                         pos: [x as f32 + self.position.x, y as f32 + self.position.y, z as f32 + self.position.z, 1.0],
-                        color: [1.0, 1.0, 0.0, 1.0]
+                        color: [1.0, 1.0, 0.0, 1.0],
+                        tex_coord: [0., 0.]
                     };
                     self.vertices[self.size.vertex_coordinates_1_d(x, y, z)] = vertex;
                 }

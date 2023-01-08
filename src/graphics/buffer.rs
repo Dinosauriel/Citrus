@@ -4,7 +4,7 @@ use std::mem::align_of;
 use crate::*;
 
 pub struct Buffer {
-    pub vulkan_instance: vk::Buffer,
+    pub vk_buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     memory_requirements: vk::MemoryRequirements,
 }
@@ -21,7 +21,7 @@ impl Buffer {
         let buffer = device.create_buffer(&buffer_info, None).unwrap();
         let memory_req = device.get_buffer_memory_requirements(buffer);
 
-        let memory_index = find_memorytype_index(&memory_req, &device_memory_properties, properties)
+        let memory_index = find_memorytype_index(&device_memory_properties, &memory_req, properties)
         .expect("unable to find suitable memorytype for buffer.");
 
         let allocation_info = vk::MemoryAllocateInfo {
@@ -36,7 +36,7 @@ impl Buffer {
         device.bind_buffer_memory(buffer, memory, 0).unwrap();
 
         return Buffer {
-            vulkan_instance: buffer,
+            vk_buffer: buffer,
             memory: memory,
             memory_requirements: memory_req
         }
@@ -51,6 +51,6 @@ impl Buffer {
 
     pub unsafe fn free(&self, device: &ash::Device) {
         device.free_memory(self.memory, None);
-        device.destroy_buffer(self.vulkan_instance, None);
+        device.destroy_buffer(self.vk_buffer, None);
     }
 }

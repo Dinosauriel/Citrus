@@ -1,9 +1,10 @@
 use std::vec;
 use std::fs;
 use rusttype::{point, Font, Scale};
+use crate::graphics::state::GraphicState;
 use crate::graphics::texture;
 
-pub fn load_font(path: &str) {
+pub unsafe fn load_font(g_state: &GraphicState, path: &str) -> texture::Texture {
     let data = fs::read(path).unwrap();
     let font = Font::try_from_vec(data).unwrap();
 
@@ -26,7 +27,7 @@ pub fn load_font(path: &str) {
     let offset = point(0.0, v_metrics.ascent);
 
     // Glyphs to draw for "RustType". Feel free to try other strings.
-    let glyphs: Vec<_> = font.layout("RustType", scale, offset).collect();
+    let glyphs: Vec<_> = font.layout("__HI__there", scale, offset).collect();
 
     // Find the most visually pleasing width to display
     let width = glyphs
@@ -61,7 +62,7 @@ pub fn load_font(path: &str) {
         }
     }
 
-    texture::Texture::new_from_bytes(&pixel_data, width as u32, pixel_height as u32);
+    return texture::Texture::create_from_bytes(g_state, &pixel_data, width as u32, pixel_height as u32);
 }
 
 
