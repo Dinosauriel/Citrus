@@ -9,7 +9,7 @@ pub unsafe fn load_font(g_state: &GraphicState, path: &str) -> texture::Texture 
     let font = Font::try_from_vec(data).unwrap();
 
     // Desired font pixel height
-    let height: f32 = 12.4;
+    let height: f32 = 48.;
     let pixel_height = height.ceil() as usize;
 
     // 2x scale in x direction to counter the aspect ratio of monospace characters.
