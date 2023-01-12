@@ -4,13 +4,14 @@ use std::default::Default;
 use std::ffi::CStr;
 
 pub mod controls;
-pub mod camera;
 pub mod graphics {
+    pub mod camera;
     pub mod state;
     pub mod shader;
     pub mod object;
     pub mod buffer;
     pub mod texture;
+    pub mod vertex;
 }
 pub mod world;
 pub mod config;

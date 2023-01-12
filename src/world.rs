@@ -5,7 +5,7 @@ pub mod size;
 pub mod block;
 
 use noise::{NoiseFn, Perlin};
-use crate::graphics::object::Vertex;
+use crate::graphics::vertex::Vertex;
 use crate::graphics::object::TriangleGraphicsObject;
 use object::*;
 use size::*;
