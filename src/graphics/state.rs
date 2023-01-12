@@ -1,5 +1,5 @@
 use std::ops::Drop;
-use ash::vk::PhysicalDevice;
+use ash::vk::{PhysicalDevice, CommandPool, CommandBuffer, SurfaceCapabilitiesKHR, SurfaceKHR, SurfaceFormatKHR, Extent2D, SwapchainKHR, PhysicalDeviceMemoryProperties, DeviceMemory};
 use ash::{vk, Entry};
 use ash::{Device, Instance};
 use ash::extensions::{
@@ -145,6 +145,163 @@ unsafe fn create_device(instance: &Instance, pdevice: PhysicalDevice, queue_fami
     return device;
 }
 
+unsafe fn create_command_buffers(device: &Device, queue_family: u32) -> (CommandPool, CommandBuffer, CommandBuffer) {
+    let pool_create_info = vk::CommandPoolCreateInfo::builder()
+    .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+    .queue_family_index(queue_family);
+
+    let pool = device.create_command_pool(&pool_create_info, None).unwrap();
+
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+        .command_buffer_count(2)
+        .command_pool(pool)
+        .level(vk::CommandBufferLevel::PRIMARY);
+
+    let command_buffers = device
+        .allocate_command_buffers(&command_buffer_allocate_info)
+        .unwrap();
+    let setup_command_buffer = command_buffers[0];
+    let draw_command_buffer = command_buffers[1];
+
+    (pool, setup_command_buffer, draw_command_buffer)
+}
+
+unsafe fn create_swapchain(instance: &Instance, device: &Device, pdevice: &PhysicalDevice, 
+        surface: SurfaceKHR, surface_capabilities: &SurfaceCapabilitiesKHR, surface_loader: &Surface, surface_format: SurfaceFormatKHR,
+        surface_resolution: Extent2D) -> (SwapchainKHR, Swapchain) {
+
+    let mut desired_image_count = surface_capabilities.min_image_count + 1;
+    if surface_capabilities.max_image_count > 0 {
+        desired_image_count = desired_image_count.min(surface_capabilities.max_image_count);
+    }
+    
+    let pre_transform = if surface_capabilities
+        .supported_transforms
+        .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
+    {
+        vk::SurfaceTransformFlagsKHR::IDENTITY
+    } else {
+        surface_capabilities.current_transform
+    };
+    let present_modes = surface_loader
+        .get_physical_device_surface_present_modes(*pdevice, surface)
+        .unwrap();
+    let present_mode = present_modes
+        .iter()
+        .cloned()
+        .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+        .unwrap_or(vk::PresentModeKHR::FIFO);
+    let swapchain_loader = Swapchain::new(&instance, &device);
+
+    let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+        .surface(surface)
+        .min_image_count(desired_image_count)
+        .image_color_space(surface_format.color_space)
+        .image_format(surface_format.format)
+        .image_extent(surface_resolution)
+        .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+        .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+        .pre_transform(pre_transform)
+        .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+        .present_mode(present_mode)
+        .clipped(true)
+        .image_array_layers(1);
+
+    let swapchain = swapchain_loader
+        .create_swapchain(&swapchain_create_info, None)
+        .unwrap();
+
+    (swapchain, swapchain_loader)
+}
+
+unsafe fn create_swapchain_images(device: &Device, swapchain: SwapchainKHR,
+            swapchain_loader: &Swapchain, surface_format: SurfaceFormatKHR) -> (Vec<ash::vk::Image>, Vec<ash::vk::ImageView>) {
+
+    let present_images = swapchain_loader.get_swapchain_images(swapchain).unwrap();
+    let present_image_views: Vec<vk::ImageView> = present_images
+        .iter()
+        .map(|&image| {
+            let create_view_info = vk::ImageViewCreateInfo::builder()
+                .view_type(vk::ImageViewType::TYPE_2D)
+                .format(surface_format.format)
+                .components(vk::ComponentMapping {
+                    r: vk::ComponentSwizzle::R,
+                    g: vk::ComponentSwizzle::G,
+                    b: vk::ComponentSwizzle::B,
+                    a: vk::ComponentSwizzle::A,
+                })
+                .subresource_range(vk::ImageSubresourceRange {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                })
+                .image(image);
+            device.create_image_view(&create_view_info, None).unwrap()
+        })
+        .collect();
+
+    (present_images, present_image_views)
+}
+
+unsafe fn create_depth_image(device: &Device, device_memory_properties: &PhysicalDeviceMemoryProperties, surface_resolution: Extent2D)
+            -> (ash::vk::Image, DeviceMemory, ash::vk::ImageView) {
+    let depth_image_create_info = vk::ImageCreateInfo::builder()
+        .image_type(vk::ImageType::TYPE_2D)
+        .format(vk::Format::D16_UNORM)
+        .extent(vk::Extent3D {
+            width: surface_resolution.width,
+            height: surface_resolution.height,
+            depth: 1,
+        })
+        .mip_levels(1)
+        .array_layers(1)
+        .samples(vk::SampleCountFlags::TYPE_1)
+        .tiling(vk::ImageTiling::OPTIMAL)
+        .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+        .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+    let depth_image = device.create_image(&depth_image_create_info, None).unwrap();
+    let depth_image_memory_req = device.get_image_memory_requirements(depth_image);
+    let depth_image_memory_index = find_memorytype_index(
+        device_memory_properties,
+        &depth_image_memory_req,
+        vk::MemoryPropertyFlags::DEVICE_LOCAL,
+    )
+    .expect("Unable to find suitable memory index for depth image.");
+
+    let depth_image_allocate_info = vk::MemoryAllocateInfo::builder()
+        .allocation_size(depth_image_memory_req.size)
+        .memory_type_index(depth_image_memory_index);
+
+    let depth_image_memory = device
+        .allocate_memory(&depth_image_allocate_info, None)
+        .unwrap();
+
+    device
+        .bind_image_memory(depth_image, depth_image_memory, 0)
+        .expect("Unable to bind depth image memory");
+
+    let depth_image_view_info = vk::ImageViewCreateInfo::builder()
+        .subresource_range(
+            vk::ImageSubresourceRange::builder()
+                .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                .level_count(1)
+                .layer_count(1)
+                .build(),
+        )
+        .image(depth_image)
+        .format(depth_image_create_info.format)
+        .view_type(vk::ImageViewType::TYPE_2D);
+
+    let depth_image_view = device
+        .create_image_view(&depth_image_view_info, None)
+        .unwrap();
+
+    (depth_image, depth_image_memory, depth_image_view)
+}
+
 pub struct GraphicState {
     pub glfw: glfw::Glfw,
     pub window: glfw::Window,
@@ -167,6 +324,7 @@ pub struct GraphicState {
     pub surface_format: vk::SurfaceFormatKHR,
     pub surface_resolution: vk::Extent2D,
 
+    // the swap chain is essentially a queue of images that are waiting to be presented to the screen. 
     pub swapchain: vk::SwapchainKHR,
     pub present_images: Vec<vk::Image>,
     pub present_image_views: Vec<vk::ImageView>,
@@ -200,9 +358,9 @@ impl GraphicState {
 
         let entry = Entry::linked();
         let instance = create_instance(&window, &entry);
-        let surface = ash_window::create_surface(&entry, &instance, window.raw_display_handle(), window.raw_window_handle(), None).unwrap();
-
         let (debug_utils_loader, debug_call_back) = create_debug_callback(&entry, &instance);
+
+        let surface = ash_window::create_surface(&entry, &instance, window.raw_display_handle(), window.raw_window_handle(), None).unwrap();
 
         let pdevices = instance
             .enumerate_physical_devices()
@@ -248,10 +406,7 @@ impl GraphicState {
         let surface_capabilities = surface_loader
             .get_physical_device_surface_capabilities(pdevice, surface)
             .unwrap();
-        let mut desired_image_count = surface_capabilities.min_image_count + 1;
-        if surface_capabilities.max_image_count > 0 {
-            desired_image_count = desired_image_count.min(surface_capabilities.max_image_count);
-        }
+
         let surface_resolution = match surface_capabilities.current_extent.width {
             std::u32::MAX => vk::Extent2D {
                 width: window_width,
@@ -259,122 +414,22 @@ impl GraphicState {
             },
             _ => surface_capabilities.current_extent,
         };
-        let pre_transform = if surface_capabilities
-            .supported_transforms
-            .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
-        {
-            vk::SurfaceTransformFlagsKHR::IDENTITY
-        } else {
-            surface_capabilities.current_transform
-        };
-        let present_modes = surface_loader
-            .get_physical_device_surface_present_modes(pdevice, surface)
-            .unwrap();
-        let present_mode = present_modes
-            .iter()
-            .cloned()
-            .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
-            .unwrap_or(vk::PresentModeKHR::FIFO);
-        let swapchain_loader = Swapchain::new(&instance, &device);
 
-        let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface)
-            .min_image_count(desired_image_count)
-            .image_color_space(surface_format.color_space)
-            .image_format(surface_format.format)
-            .image_extent(surface_resolution)
-            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .pre_transform(pre_transform)
-            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-            .present_mode(present_mode)
-            .clipped(true)
-            .image_array_layers(1);
+        let (swapchain, swapchain_loader) = create_swapchain(&instance, &device, &pdevice, surface, &surface_capabilities, &surface_loader, surface_format, surface_resolution);
+        let (present_images, present_image_views) = create_swapchain_images(&device, swapchain, &swapchain_loader, surface_format);
 
-        let swapchain = swapchain_loader
-            .create_swapchain(&swapchain_create_info, None)
-            .unwrap();
+        let (pool, setup_command_buffer, draw_command_buffer) = create_command_buffers(&device, queue_family_index);
 
-        let pool_create_info = vk::CommandPoolCreateInfo::builder()
-            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-            .queue_family_index(queue_family_index);
-
-        let pool = device.create_command_pool(&pool_create_info, None).unwrap();
-
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_buffer_count(2)
-            .command_pool(pool)
-            .level(vk::CommandBufferLevel::PRIMARY);
-
-        let command_buffers = device
-            .allocate_command_buffers(&command_buffer_allocate_info)
-            .unwrap();
-        let setup_command_buffer = command_buffers[0];
-        let draw_command_buffer = command_buffers[1];
-
-        let present_images = swapchain_loader.get_swapchain_images(swapchain).unwrap();
-        let present_image_views: Vec<vk::ImageView> = present_images
-            .iter()
-            .map(|&image| {
-                let create_view_info = vk::ImageViewCreateInfo::builder()
-                    .view_type(vk::ImageViewType::TYPE_2D)
-                    .format(surface_format.format)
-                    .components(vk::ComponentMapping {
-                        r: vk::ComponentSwizzle::R,
-                        g: vk::ComponentSwizzle::G,
-                        b: vk::ComponentSwizzle::B,
-                        a: vk::ComponentSwizzle::A,
-                    })
-                    .subresource_range(vk::ImageSubresourceRange {
-                        aspect_mask: vk::ImageAspectFlags::COLOR,
-                        base_mip_level: 0,
-                        level_count: 1,
-                        base_array_layer: 0,
-                        layer_count: 1,
-                    })
-                    .image(image);
-                device.create_image_view(&create_view_info, None).unwrap()
-            })
-            .collect();
         let device_memory_properties = instance.get_physical_device_memory_properties(pdevice);
-        let depth_image_create_info = vk::ImageCreateInfo::builder()
-            .image_type(vk::ImageType::TYPE_2D)
-            .format(vk::Format::D16_UNORM)
-            .extent(vk::Extent3D {
-                width: surface_resolution.width,
-                height: surface_resolution.height,
-                depth: 1,
-            })
-            .mip_levels(1)
-            .array_layers(1)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .tiling(vk::ImageTiling::OPTIMAL)
-            .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
-        let depth_image = device.create_image(&depth_image_create_info, None).unwrap();
-        let depth_image_memory_req = device.get_image_memory_requirements(depth_image);
-        let depth_image_memory_index = find_memorytype_index(
-            &device_memory_properties,
-            &depth_image_memory_req,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        )
-        .expect("Unable to find suitable memory index for depth image.");
+        let (depth_image, depth_image_memory, depth_image_view) = create_depth_image(&device, &device_memory_properties, surface_resolution);
 
-        let depth_image_allocate_info = vk::MemoryAllocateInfo::builder()
-            .allocation_size(depth_image_memory_req.size)
-            .memory_type_index(depth_image_memory_index);
+        let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
-        let depth_image_memory = device
-            .allocate_memory(&depth_image_allocate_info, None)
-            .unwrap();
+        let present_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
+        let rendering_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
 
-        device
-            .bind_image_memory(depth_image, depth_image_memory, 0)
-            .expect("Unable to bind depth image memory");
-
-        let fence_create_info =
-            vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+        let fence_create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
 
         let draw_commands_reuse_fence = device
             .create_fence(&fence_create_info, None)
@@ -419,27 +474,6 @@ impl GraphicState {
                 );
             },
         );
-
-        let depth_image_view_info = vk::ImageViewCreateInfo::builder()
-            .subresource_range(
-                vk::ImageSubresourceRange::builder()
-                    .aspect_mask(vk::ImageAspectFlags::DEPTH)
-                    .level_count(1)
-                    .layer_count(1)
-                    .build(),
-            )
-            .image(depth_image)
-            .format(depth_image_create_info.format)
-            .view_type(vk::ImageViewType::TYPE_2D);
-
-        let depth_image_view = device
-            .create_image_view(&depth_image_view_info, None)
-            .unwrap();
-
-        let semaphore_create_info = vk::SemaphoreCreateInfo::default();
-
-        let present_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
-        let rendering_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
 
         GraphicState {
             glfw,
