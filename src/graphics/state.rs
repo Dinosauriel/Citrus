@@ -1,14 +1,13 @@
 use std::ops::Drop;
-use ash::vk::{PhysicalDevice, CommandPool, CommandBuffer, SurfaceCapabilitiesKHR, SurfaceKHR, SurfaceFormatKHR, Extent2D, SwapchainKHR, PhysicalDeviceMemoryProperties, DeviceMemory};
-use ash::{vk, Entry};
-use ash::{Device, Instance};
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use glfw::Context;
+use ash;
+use ash::vk;
 use ash::extensions::{
     ext::DebugUtils,
     khr::{Surface, Swapchain},
 };
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use glfw::Context;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use crate::find_memorytype_index;
@@ -18,8 +17,8 @@ use crate::vulkan_debug_callback;
 /// is executed. That way we can delay the waiting for the fences by 1 frame which is good for performance.
 /// Make sure to create the fence in a signaled state on the first use.
 #[allow(clippy::too_many_arguments)]
-pub unsafe fn submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
-    device: &Device,
+pub unsafe fn submit_commandbuffer<F: FnOnce(&ash::Device, vk::CommandBuffer)>(
+    device: &ash::Device,
     command_buffer: vk::CommandBuffer,
     command_buffer_reuse_fence: vk::Fence,
     submit_queue: vk::Queue,
@@ -32,20 +31,16 @@ pub unsafe fn submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
 
     device.reset_fences(&[command_buffer_reuse_fence]).expect("Reset fences failed.");
 
-    device.reset_command_buffer(
-            command_buffer,
-            vk::CommandBufferResetFlags::RELEASE_RESOURCES,
-        )
-        .expect("Reset command buffer failed.");
+    device.reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::RELEASE_RESOURCES,).expect("Reset command buffer failed.");
 
     let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
         .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-    device.begin_command_buffer(command_buffer, &command_buffer_begin_info).expect("Begin commandbuffer");
+    device.begin_command_buffer(command_buffer, &command_buffer_begin_info).expect("unable to begin commandbuffer");
 
     f(device, command_buffer);
 
-    device.end_command_buffer(command_buffer).expect("End commandbuffer");
+    device.end_command_buffer(command_buffer).expect("unable to end commandbuffer");
 
     let command_buffers = vec![command_buffer];
 
@@ -55,14 +50,10 @@ pub unsafe fn submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
         .command_buffers(&command_buffers)
         .signal_semaphores(signal_semaphores);
 
-    device.queue_submit(
-            submit_queue,
-            &[submit_info.build()],
-            command_buffer_reuse_fence,
-        ).expect("queue submit failed.");
+    device.queue_submit(submit_queue, &[submit_info.build()], command_buffer_reuse_fence).expect("queue submit failed.");
 }
 
-unsafe fn create_instance(window: &glfw::Window, entry: &Entry) -> Instance {
+unsafe fn create_instance(window: &glfw::Window, entry: &ash::Entry) -> ash::Instance {
     let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
 
     let layer_names = [CStr::from_bytes_with_nul_unchecked(
@@ -88,13 +79,13 @@ unsafe fn create_instance(window: &glfw::Window, entry: &Entry) -> Instance {
         .enabled_layer_names(&layers_names_raw)
         .enabled_extension_names(&surface_extensions);
 
-    let instance: Instance = entry
+    let instance: ash::Instance = entry
         .create_instance(&create_info, None)
         .expect("Instance creation error");
     return instance;
 }
 
-fn create_debug_callback(entry: &Entry, instance: &Instance) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
+fn create_debug_callback(entry: &ash::Entry, instance: &ash::Instance) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
     let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
     .message_severity(
         vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
@@ -117,7 +108,7 @@ fn create_debug_callback(entry: &Entry, instance: &Instance) -> (DebugUtils, vk:
     }
 }
 
-unsafe fn create_device(instance: &Instance, pdevice: PhysicalDevice, queue_family_index: u32) -> Device {
+unsafe fn create_device(instance: &ash::Instance, pdevice: vk::PhysicalDevice, queue_family_index: u32) -> ash::Device {
     let device_extension_names_raw = [Swapchain::name().as_ptr()];
 
     //the features that we request from the device
@@ -138,14 +129,14 @@ unsafe fn create_device(instance: &Instance, pdevice: PhysicalDevice, queue_fami
         .enabled_extension_names(&device_extension_names_raw)
         .enabled_features(&features);
 
-    let device: Device = instance
+    let device: ash::Device = instance
         .create_device(pdevice, &device_create_info, None)
         .unwrap();
 
     return device;
 }
 
-unsafe fn create_command_buffers(device: &Device, queue_family: u32) -> (CommandPool, CommandBuffer, CommandBuffer) {
+unsafe fn create_command_buffers(device: &ash::Device, queue_family: u32) -> (vk::CommandPool, vk::CommandBuffer, vk::CommandBuffer) {
     let pool_create_info = vk::CommandPoolCreateInfo::builder()
     .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
     .queue_family_index(queue_family);
@@ -166,9 +157,9 @@ unsafe fn create_command_buffers(device: &Device, queue_family: u32) -> (Command
     (pool, setup_command_buffer, draw_command_buffer)
 }
 
-unsafe fn create_swapchain(instance: &Instance, device: &Device, pdevice: &PhysicalDevice, 
-        surface: SurfaceKHR, surface_capabilities: &SurfaceCapabilitiesKHR, surface_loader: &Surface, surface_format: SurfaceFormatKHR,
-        surface_resolution: Extent2D) -> (SwapchainKHR, Swapchain) {
+unsafe fn create_swapchain(instance: &ash::Instance, device: &ash::Device, pdevice: &vk::PhysicalDevice, 
+        surface: vk::SurfaceKHR, surface_capabilities: &vk::SurfaceCapabilitiesKHR, surface_loader: &Surface, surface_format: vk::SurfaceFormatKHR,
+        surface_resolution: vk::Extent2D) -> (vk::SwapchainKHR, Swapchain) {
 
     let mut desired_image_count = surface_capabilities.min_image_count + 1;
     if surface_capabilities.max_image_count > 0 {
@@ -214,8 +205,8 @@ unsafe fn create_swapchain(instance: &Instance, device: &Device, pdevice: &Physi
     (swapchain, swapchain_loader)
 }
 
-unsafe fn create_swapchain_images(device: &Device, swapchain: SwapchainKHR,
-            swapchain_loader: &Swapchain, surface_format: SurfaceFormatKHR) -> (Vec<ash::vk::Image>, Vec<ash::vk::ImageView>) {
+unsafe fn create_swapchain_images(device: &ash::Device, swapchain: vk::SwapchainKHR,
+            swapchain_loader: &Swapchain, surface_format: vk::SurfaceFormatKHR) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
 
     let present_images = swapchain_loader.get_swapchain_images(swapchain).unwrap();
     let present_image_views: Vec<vk::ImageView> = present_images
@@ -245,8 +236,8 @@ unsafe fn create_swapchain_images(device: &Device, swapchain: SwapchainKHR,
     (present_images, present_image_views)
 }
 
-unsafe fn create_depth_image(device: &Device, device_memory_properties: &PhysicalDeviceMemoryProperties, surface_resolution: Extent2D)
-            -> (ash::vk::Image, DeviceMemory, ash::vk::ImageView) {
+unsafe fn create_depth_image(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties, surface_resolution: vk::Extent2D)
+            -> (vk::Image, vk::DeviceMemory, vk::ImageView) {
     let depth_image_create_info = vk::ImageCreateInfo::builder()
         .image_type(vk::ImageType::TYPE_2D)
         .format(vk::Format::D16_UNORM)
@@ -303,7 +294,8 @@ unsafe fn create_depth_image(device: &Device, device_memory_properties: &Physica
 }
 
 // find the first suitable physical device and return it
-unsafe fn find_physical_device(instance: &Instance, pdevices: Vec<PhysicalDevice>, surface_loader: &Surface, surface: SurfaceKHR) -> (PhysicalDevice, u32) {
+unsafe fn find_physical_device(instance: &ash::Instance, pdevices: Vec<vk::PhysicalDevice>,
+            surface_loader: &Surface, surface: vk::SurfaceKHR) -> (vk::PhysicalDevice, u32) {
     let (pdevice, queue_family_index) = pdevices.iter().map(
         | pdevice | {
             instance.get_physical_device_queue_family_properties(*pdevice)
@@ -331,9 +323,9 @@ pub struct GraphicState {
     pub window: glfw::Window,
     pub events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
 
-    pub entry: Entry,
-    pub instance: Instance,
-    pub device: Device,
+    pub entry: ash::Entry,
+    pub instance: ash::Instance,
+    pub device: ash::Device,
     pub surface_loader: Surface,
     pub swapchain_loader: Swapchain,
     pub debug_utils_loader: DebugUtils,
@@ -380,7 +372,7 @@ impl GraphicState {
         window.set_cursor_mode(glfw::CursorMode::Disabled);
         window.set_cursor_pos_polling(true);
 
-        let entry = Entry::linked();
+        let entry = ash::Entry::linked();
         let instance = create_instance(&window, &entry);
         let (debug_utils_loader, debug_call_back) = create_debug_callback(&entry, &instance);
 
