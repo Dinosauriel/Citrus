@@ -302,6 +302,30 @@ unsafe fn create_depth_image(device: &Device, device_memory_properties: &Physica
     (depth_image, depth_image_memory, depth_image_view)
 }
 
+// find the first suitable physical device and return it
+unsafe fn find_physical_device(instance: &Instance, pdevices: Vec<PhysicalDevice>, surface_loader: &Surface, surface: SurfaceKHR) -> (PhysicalDevice, u32) {
+    let (pdevice, queue_family_index) = pdevices.iter().map(
+        | pdevice | {
+            instance.get_physical_device_queue_family_properties(*pdevice)
+                .iter()
+                .enumerate()
+                .find_map(|(index, info)| {
+                    let supports_graphic_and_surface =
+                        info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+                            && surface_loader.get_physical_device_surface_support(*pdevice, index as u32, surface).unwrap();
+                    if supports_graphic_and_surface {
+                        Some((*pdevice, index))
+                    } else {
+                        None
+                    }
+                })
+        })
+        .flatten()
+        .next()
+        .expect("Couldn't find suitable device.");
+    (pdevice, queue_family_index as u32)
+}
+
 pub struct GraphicState {
     pub glfw: glfw::Glfw,
     pub window: glfw::Window,
@@ -361,51 +385,18 @@ impl GraphicState {
         let (debug_utils_loader, debug_call_back) = create_debug_callback(&entry, &instance);
 
         let surface = ash_window::create_surface(&entry, &instance, window.raw_display_handle(), window.raw_window_handle(), None).unwrap();
-
-        let pdevices = instance
-            .enumerate_physical_devices()
-            .expect("Physical device error");
         let surface_loader = Surface::new(&entry, &instance);
-        let (pdevice, queue_family_index) = pdevices
-            .iter()
-            .map(|pdevice| {
-                instance
-                    .get_physical_device_queue_family_properties(*pdevice)
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, info)| {
-                        let supports_graphic_and_surface =
-                            info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
-                                && surface_loader
-                                    .get_physical_device_surface_support(
-                                        *pdevice,
-                                        index as u32,
-                                        surface,
-                                    )
-                                    .unwrap();
-                        if supports_graphic_and_surface {
-                            Some((*pdevice, index))
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .flatten()
-            .next()
-            .expect("Couldn't find suitable device.");
-        let queue_family_index = queue_family_index as u32;
+
+        let pdevices = instance.enumerate_physical_devices().expect("unable to list physical devices");
+        let (pdevice, queue_family_index) = find_physical_device(&instance, pdevices, &surface_loader, surface);
 
         let device = create_device(&instance, pdevice, queue_family_index);
 
-        let present_queue = device.get_device_queue(queue_family_index as u32, 0);
+        let present_queue = device.get_device_queue(queue_family_index, 0);
 
-        let surface_format = surface_loader
-            .get_physical_device_surface_formats(pdevice, surface)
-            .unwrap()[0];
+        let surface_format = surface_loader.get_physical_device_surface_formats(pdevice, surface).unwrap()[0];
 
-        let surface_capabilities = surface_loader
-            .get_physical_device_surface_capabilities(pdevice, surface)
-            .unwrap();
+        let surface_capabilities = surface_loader.get_physical_device_surface_capabilities(pdevice, surface).unwrap();
 
         let surface_resolution = match surface_capabilities.current_extent.width {
             std::u32::MAX => vk::Extent2D {
@@ -425,18 +416,12 @@ impl GraphicState {
         let (depth_image, depth_image_memory, depth_image_view) = create_depth_image(&device, &device_memory_properties, surface_resolution);
 
         let semaphore_create_info = vk::SemaphoreCreateInfo::default();
-
         let present_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
         let rendering_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
 
         let fence_create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
-
-        let draw_commands_reuse_fence = device
-            .create_fence(&fence_create_info, None)
-            .expect("Create fence failed.");
-        let setup_commands_reuse_fence = device
-            .create_fence(&fence_create_info, None)
-            .expect("Create fence failed.");
+        let draw_commands_reuse_fence = device.create_fence(&fence_create_info, None).expect("Create fence failed.");
+        let setup_commands_reuse_fence = device.create_fence(&fence_create_info, None).expect("Create fence failed.");
 
         submit_commandbuffer(
             &device,
