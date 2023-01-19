@@ -6,7 +6,6 @@ use std::time;
 use glam::Mat4;
 use glfw::Context;
 use ash::vk;
-use citrus::offset_of;
 use citrus::config;
 use citrus::ui;
 use citrus::graphics::texture::Texture;
@@ -289,30 +288,30 @@ fn main() {
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
             triangle_index_buffer.fill(&base.device, triangle.indices());
             
-            let triangle_vertex_buffer = buffer::Buffer::create(
-                &base.device,
-                &base.device_memory_properties,
-                (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+        let triangle_vertex_buffer = buffer::Buffer::create(
+            &base.device,
+            &base.device_memory_properties,
+            (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
             triangle_vertex_buffer.fill(&base.device, triangle.vertices());
             // ++++++++++++++
             
-            let hud_triangle = Triangle::create(
-                &Vertex {
-                    pos: [0.5, 0., 0., 1.],
-                    color: [1., 0., 1., 1.],
-                    tex_coord: [0., 0.],
-                },
-                &Vertex {
-                    pos: [-0.5, 0., 0., 1.],
-                    color: [1., 0., 0., 1.],
-                    tex_coord: [4., 0.],
-                },
-                &Vertex {
-                    pos: [0., 0.5, 0., 1.],
-                    color: [1., 1., 0., 1.],
-                    tex_coord: [0., 4.],
+        let hud_triangle = Triangle::create(
+            &Vertex {
+                pos: [0.5, 0., 0., 1.],
+                color: [1., 0., 1., 1.],
+                tex_coord: [0., 0.],
+            },
+            &Vertex {
+                pos: [-0.5, 0., 0., 1.],
+                color: [1., 0., 0., 1.],
+                tex_coord: [2., 0.],
+            },
+            &Vertex {
+                pos: [0., 0.5, 0., 1.],
+                color: [1., 1., 0., 1.],
+                tex_coord: [0., 2.],
             },
         );
         let hud_triangle_index_buffer = buffer::Buffer::create(
@@ -372,35 +371,14 @@ fn main() {
             },
         ];
 
-        let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: mem::size_of::<Vertex>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }];
+        let vertex_input_binding_descriptions = [Vertex::binding_description()];
 
-        let vertex_input_attribute_descriptions = [
-            vk::VertexInputAttributeDescription {
-                location: 0,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, pos) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 1,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 2,
-                binding: 0,
-                format: vk::Format::R32G32_SFLOAT,
-                offset: offset_of!(Vertex, tex_coord) as u32,
-            }
-        ];
+        let vertex_input_attribute_descriptions = Vertex::attribute_desctiptions();
+
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
             .vertex_binding_descriptions(&vertex_input_binding_descriptions);
+
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             ..Default::default()
@@ -419,7 +397,6 @@ fn main() {
                 ..Default::default()
             },
             vk::PipelineShaderStageCreateInfo {
-                s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
                 module: hud_fragment_shader_module,
                 p_name: shader_entry_name.as_ptr(),
                 stage: vk::ShaderStageFlags::FRAGMENT,
@@ -616,11 +593,11 @@ fn main() {
                 },
             );
 
-            let wait_semaphors = [base.rendering_complete_semaphore];
+            let wait_semaphores = [base.rendering_complete_semaphore];
             let swapchains = [base.swapchain];
             let image_indices = [present_index];
             let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&wait_semaphors)
+                .wait_semaphores(&wait_semaphores)
                 .swapchains(&swapchains)
                 .image_indices(&image_indices);
 
