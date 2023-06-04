@@ -229,15 +229,21 @@ fn main() {
 
         let mut world = World::new();
 
-        let mut object1 = BlockObject::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 10., 0.), vec![BlockType::Grass; 8]);
+        let mut blocks = vec![BlockType::Grass; 8];
+        blocks[0] = BlockType::NoBlock;
+        let mut object1 = BlockObject::new(Size3D {x: 2, y: 2, z: 2}, glam::Vec3::new(10., 20., 0.), blocks);
+        object1.is_ticking = true;
+
         object1.update_indices();
         object1.update_vertices();
         world.objects.push(object1);
 
-        let mut object_buffers: Vec<(&BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
-        
-        for object in &world.objects {
+        let n = world.objects.len();
+        println!("{n} objects found");
 
+        let mut object_buffers: Vec<(&mut BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
+
+        for object in &mut world.objects {
             let index_buffer = buffer::Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
@@ -258,9 +264,6 @@ fn main() {
 
             object_buffers.push((object, vertex_buffer, index_buffer));
         }
-
-        let n = world.objects.len();
-        println!("{n} objects found");
 
         let triangle = Triangle::create(
             &Vertex {
@@ -295,8 +298,8 @@ fn main() {
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
             triangle_vertex_buffer.fill(&base.device, triangle.vertices());
-            // ++++++++++++++
-            
+        // ++++++++++++++
+
         let hud_triangle = Triangle::create(
             &Vertex {
                 pos: [0.5, 0., 0., 1.],
@@ -615,6 +618,15 @@ fn main() {
                 if input_state.escape {
                     base.window.set_should_close(true);
                     println!("escape!");
+                }
+
+                for (object, vertex_buffer, _) in &mut object_buffers {
+                    if object.is_ticking {
+                        let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
+                        object.tick(now.as_millis());
+                        object.update_vertices();
+                        vertex_buffer.fill(&base.device, object.vertices());
+                    }
                 }
             }
 

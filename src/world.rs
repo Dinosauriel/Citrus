@@ -74,7 +74,7 @@ impl World {
     fn populate(&mut self) {
         for x in 0 .. L2_SIZE_BL.x {
             for z in 0 .. L2_SIZE_BL.z {
-                let y = (5. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as usize;
+                let y = (2. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as usize;
                 self.set_block(x, y, z, BlockType::Grass);
             }
         }
