@@ -24,16 +24,19 @@ impl BlockObject {
     }
 
     pub fn tick(&mut self, t: u128) {
-        self.position.y = 10. + ((((t % 10000)) as f32) / 100.).sin();
+        self.position.y = 10. + (((t % 10000) as f32) / 500.).sin();
+        self.position.x = 10. + (((t % 10000) as f32) / 500.).cos();
     }
 
     pub fn update_indices(&mut self) {
         let block_list = self.block_list();
         self.indices = vec![0; 36 * block_list.len()];
+
         for (j, &(x, y, z)) in block_list.iter().enumerate() {
             if self.blocks[self.size.coordinates_1_d(x, y, z)] == BlockType::Grass {
+
                 for i in 0 .. 36 {
-                    self.indices[j * 36 + i] = self.size.coordinates_1_d(x, y, z) as u32 * 8 + BLOCK_TRIANGLE_INDICES[i] as u32;
+                    self.indices[j * 36 + i] = (self.size.coordinates_1_d(x, y, z) * 8 + BLOCK_TRIANGLE_INDICES[i]) as u32;
                 }
             }
         }
@@ -44,7 +47,7 @@ impl BlockObject {
         let mut rng = thread_rng();
 
         for (i, (x, y, z)) in self.size.into_iter().enumerate() {
-            let color: [f32; 4] = [rng.gen(), rng.gen(), rng.gen(), rng.gen()];
+            let color: [f32; 4] = [rng.gen(), rng.gen(), rng.gen(), 0.8];
             // let color: [f32; 4] = [1., 1., 0., 0.8];
 
             for (j, [dx, dy, dz]) in BLOCK_VERTICES.iter().enumerate() {

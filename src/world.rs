@@ -74,19 +74,17 @@ impl World {
     fn populate(&mut self) {
         for x in 0 .. L2_SIZE_BL.x {
             for z in 0 .. L2_SIZE_BL.z {
-                let y = (2. * self.noise.get([(x as f64) / 10., (z as f64) / 10.])).floor() as usize;
+                let y = (20. * self.noise.get([(x as f64) / 150., (z as f64) / 150.])).floor() as usize;
                 self.set_block(x, y, z, BlockType::Grass);
             }
         }
 
-        println!("blocks set");
-
         for (l3x, l3y, l3z) in L4_SIZE {
-            // print!("{:?} contains ", (l3x, l3y, l3z));
             if let Some(l3) = &self.structure.sub_segments[L4_SIZE.coordinates_1_d(l3x, l3y, l3z)] {
-                // println!("Some");
+
                 for (l2x, l2y, l2z) in L3_SIZE {
                     if let Some(l2) = &l3.sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z)] {
+
                         for (l1x, l1y, l1z) in L2_SIZE {
                             if let Some(l1) = &l2.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z)] {
                                 let x_offset = l3x * L3_SIZE_BL.x + l2x * L2_SIZE_BL.x + l1x * L1_SIZE_BL.x;

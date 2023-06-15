@@ -48,11 +48,11 @@ impl Size3D {
     }
 
     pub fn coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
-        return self.x * self.z * y + self.z * x + z;
+        return self.y * self.z * x + self.z * y + z;
     }
 
     pub fn vertex_coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
-        return (self.x + 1) * (self.z + 1) * y + (self.z + 1) * x + z;
+        return (self.y + 1) * (self.z + 1) * x + (self.z + 1) * y + z;
     }
 }
 
