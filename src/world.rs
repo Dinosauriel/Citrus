@@ -12,6 +12,7 @@ use size::*;
 use segment::*;
 use block::*;
 use glam::Vec3;
+use std::time;
 
 const BLOCK_TRIANGLE_INDICES: [usize; 36] = [
     1, 0, 2,
@@ -72,9 +73,11 @@ impl World {
     }
 
     fn populate(&mut self) {
-        for x in 0 .. L2_SIZE_BL.x {
+        let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
+        let t = (now.as_millis() % 10000) as f64;
+        for x in 0 .. L3_SIZE_BL.x {
             for z in 0 .. L2_SIZE_BL.z {
-                let y = (20. * self.noise.get([(x as f64) / 150., (z as f64) / 150.])).floor() as usize;
+                let y = (20. * self.noise.get([t, (x as f64) / 150., (z as f64) / 150.])).floor() as usize;
                 self.set_block(x, y, z, BlockType::Grass);
             }
         }
