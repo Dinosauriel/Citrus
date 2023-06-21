@@ -32,11 +32,11 @@ impl Ray {
     }
 
     // return the first intersected blocks within n units
-    pub fn intersected_blocks(&self, n: usize) -> Vec<Coords> {
+    pub fn intersected_blocks(&self, n: usize) -> Vec<ICoords> {
         let mut coords = Vec::with_capacity(n);
         let mut p = self.origin;
         while self.origin.distance_squared(p) < (n * n) as f32 {
-            coords.push(Coords {x: p.x as i64, y: p.y as i64, z: p.z as i64});
+            coords.push(ICoords {x: p.x as i64, y: p.y as i64, z: p.z as i64});
             let delta_x = Self::round_in_dir(p.x, self.direction.x) - p.x;
             let delta_y = Self::round_in_dir(p.y, self.direction.y) - p.y;
             let delta_z = Self::round_in_dir(p.z, self.direction.z) - p.z;

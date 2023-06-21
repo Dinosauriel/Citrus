@@ -1,4 +1,5 @@
 use std::iter::Iterator;
+use crate::world::ICoords;
 
 pub struct Size3DIterator {
     size: Size3D,
@@ -53,6 +54,12 @@ impl Size3D {
 
     pub fn vertex_coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
         return (self.y + 1) * (self.z + 1) * x + (self.z + 1) * y + z;
+    }
+
+    pub fn contains(&self, c: ICoords) -> bool {
+        (0..self.x as i64).contains(&c.x) 
+        && (0..self.y as i64).contains(&c.y) 
+        && (0..self.z as i64).contains(&c.z)
     }
 }
 

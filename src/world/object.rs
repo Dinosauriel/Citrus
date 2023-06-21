@@ -30,11 +30,22 @@ impl BlockObject {
 
     pub fn update_indices(&mut self) {
         let block_list = self.block_list();
-        self.indices = vec![0; 36 * block_list.len()];
+        self.indices = vec![];
 
-        for i in 0 .. block_list.len() {
-            for j in 0 .. 36 {
-                self.indices[i * 36 + j] = (i * 8 + BLOCK_TRIANGLE_INDICES[j]) as u32;
+        for (i, (x, y, z)) in block_list.into_iter().enumerate() {
+            let c = ICoords {x: x as i64, y: y as i64, z: z as i64};
+            for face in Face::all() {
+                // coordinates of the neighbouring block
+                let c_p = c + face.numeric();
+                if self.size.contains(c_p) 
+                    && self.blocks[self.size.coordinates_1_d(c_p.x as usize, c_p.y as usize, c_p.z as usize)] != BlockType::NoBlock {
+                        // skip these indices if the neighbouring coordinates are not empty
+                        continue;
+                }
+
+                for index in face.indices() {
+                    self.indices.push((i * 8 + index) as u32)
+                }
             }
         }
     }
@@ -48,7 +59,7 @@ impl BlockObject {
             let color: [f32; 4] = [rng.gen(), rng.gen(), rng.gen(), 0.8];
             // let color: [f32; 4] = [1., 1., 0., 0.8];
 
-            for (j, [dx, dy, dz]) in BLOCK_VERTICES.iter().enumerate() {
+            for (j, [dx, dy, dz]) in BL_VERTICES.iter().enumerate() {
                 let vertex = Vertex {
                     pos: [
                         (x + dx) as f32 + self.position.x,
