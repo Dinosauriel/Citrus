@@ -59,10 +59,7 @@ unsafe fn create_instance(window: &glfw::Window, entry: &ash::Entry) -> ash::Ins
     let layer_names = [CStr::from_bytes_with_nul_unchecked(
         b"VK_LAYER_KHRONOS_validation\0",
     )];
-    let layers_names_raw: Vec<*const c_char> = layer_names
-        .iter()
-        .map(|raw_name| raw_name.as_ptr())
-        .collect();
+    let layer_names_raw: Vec<*const c_char> = layer_names.iter().map(|name| name.as_ptr()).collect();
 
     let mut surface_extensions = ash_window::enumerate_required_extensions(window.raw_display_handle()).unwrap().to_vec();
     surface_extensions.push(DebugUtils::name().as_ptr());
@@ -72,11 +69,11 @@ unsafe fn create_instance(window: &glfw::Window, entry: &ash::Entry) -> ash::Ins
         .application_version(0)
         .engine_name(app_name)
         .engine_version(0)
-        .api_version(vk::make_api_version(0, 1, 0, 0));
+        .api_version(vk::make_api_version(0, 1, 3, 0));
 
     let create_info = vk::InstanceCreateInfo::builder()
         .application_info(&appinfo)
-        .enabled_layer_names(&layers_names_raw)
+        .enabled_layer_names(&layer_names_raw)
         .enabled_extension_names(&surface_extensions);
 
     let instance: ash::Instance = entry
@@ -266,12 +263,9 @@ unsafe fn create_depth_image(device: &ash::Device, device_memory_properties: &vk
         .allocation_size(depth_image_memory_req.size)
         .memory_type_index(depth_image_memory_index);
 
-    let depth_image_memory = device
-        .allocate_memory(&depth_image_allocate_info, None)
-        .unwrap();
+    let depth_image_memory = device.allocate_memory(&depth_image_allocate_info, None).unwrap();
 
-    device
-        .bind_image_memory(depth_image, depth_image_memory, 0)
+    device.bind_image_memory(depth_image, depth_image_memory, 0)
         .expect("Unable to bind depth image memory");
 
     let depth_image_view_info = vk::ImageViewCreateInfo::builder()
@@ -383,6 +377,7 @@ impl GraphicState {
         let (pdevice, queue_family_index) = find_physical_device(&instance, pdevices, &surface_loader, surface);
 
         let device = create_device(&instance, pdevice, queue_family_index);
+        let device_memory_properties = instance.get_physical_device_memory_properties(pdevice);
 
         let present_queue = device.get_device_queue(queue_family_index, 0);
 
@@ -402,8 +397,6 @@ impl GraphicState {
         let (present_images, present_image_views) = create_swapchain_images(&device, swapchain, &swapchain_loader, surface_format);
 
         let (pool, setup_command_buffer, draw_command_buffer) = create_command_buffers(&device, queue_family_index);
-
-        let device_memory_properties = instance.get_physical_device_memory_properties(pdevice);
 
         let (depth_image, depth_image_memory, depth_image_view) = create_depth_image(&device, &device_memory_properties, surface_resolution);
 

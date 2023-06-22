@@ -8,7 +8,6 @@ use glfw::Context;
 use ash::vk;
 use citrus::config;
 use citrus::ui;
-use citrus::graphics::texture::Texture;
 use citrus::controls::InputState;
 use citrus::world::*;
 use citrus::world::size::*;
@@ -20,6 +19,7 @@ use citrus::graphics::vertex::Vertex;
 use citrus::graphics::buffer;
 use citrus::graphics::camera;
 use citrus::graphics::state::GraphicState;
+use citrus::graphics::texture::Texture;
 use citrus::graphics::state::submit_commandbuffer;
 
 #[derive(Clone, Debug, Copy)]
@@ -225,7 +225,8 @@ fn main() {
         // +++++++++++++++
         println!("worldgen");
 
-        let deja_vu_texture = ui::text::load_font(&base, "./src/assets/DejaVuSansMono.ttf");
+        let (font, font_width, font_height) = ui::text::load_font("./src/assets/DejaVuSansMono.ttf");
+        let deja_vu_texture = Texture::create_from_bytes(&base, &font, font_width as u32, font_height as u32);
 
         let mut world = World::new();
 

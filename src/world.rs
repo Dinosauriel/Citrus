@@ -46,20 +46,20 @@ const INDICES_POS_Z: [usize; 6] = [
     3, 7, 5,
 ];
 
-const BL_INDICES: [usize; 36] = [
-    1, 0, 2,
-    1, 2, 3,
-    4, 5, 6,
-    5, 7, 6,
-    0, 1, 4,
-    1, 5, 4,
-    2, 6, 3,
-    3, 6, 7,
-    0, 4, 2,
-    2, 4, 6,
-    1, 3, 5,
-    3, 7, 5,
-];
+// const BL_INDICES: [usize; 36] = [
+//     1, 0, 2,
+//     1, 2, 3,
+//     4, 5, 6,
+//     5, 7, 6,
+//     0, 1, 4,
+//     1, 5, 4,
+//     2, 6, 3,
+//     3, 6, 7,
+//     0, 4, 2,
+//     2, 4, 6,
+//     1, 3, 5,
+//     3, 7, 5,
+// ];
 
 const BL_VERTICES: [[usize; 3]; 8] = [
     [0, 0, 0],
@@ -207,7 +207,6 @@ impl World {
         for x in 0 .. L2_SIZE_BL.x as i64 {
             for z in 0 .. L2_SIZE_BL.z as i64 {
                 let y = (40. * self.noise.get([t, (x as f64) / 150., (z as f64) / 150.])).floor().max(0.);
-                // let y = 3.0;
                 self.set_block(ICoords {x, y: y as i64, z}, BlockType::Grass);
             }
         }
