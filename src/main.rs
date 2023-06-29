@@ -15,9 +15,9 @@ use citrus::world::object::*;
 use citrus::world::block::*;
 use citrus::graphics::shader::*;
 use citrus::graphics::object::*;
-use citrus::graphics::vertex::Vertex;
-use citrus::graphics::buffer;
-use citrus::graphics::camera;
+use citrus::graphics::vertex::*;
+use citrus::graphics::buffer::*;
+use citrus::graphics::camera::*;
 use citrus::graphics::state::GraphicState;
 use citrus::graphics::texture::Texture;
 use citrus::graphics::state::submit_commandbuffer;
@@ -186,8 +186,8 @@ fn create_render_pass(base: &GraphicState) -> vk::RenderPass {
     }
 }
 
-unsafe fn get_proj_matrices(cam: &camera::Camera) -> UniformBufferObject {
-    let view = Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, camera::UP);
+unsafe fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
+    let view = Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, UP);
     // let view = Mat4::look_at_rh(- cam.direction * 2., glam::Vec3::new(0., 0., 0.), camera::UP);
     let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 1000.);
 
@@ -219,7 +219,7 @@ fn main() {
             })
             .collect();
 
-        let mut cam = camera::Camera::default();
+        let mut cam = Camera::default();
         let mut input_state = InputState::default();
 
         // +++++++++++++++
@@ -242,10 +242,10 @@ fn main() {
         let n = world.objects.len();
         println!("{n} objects found");
 
-        let mut object_buffers: Vec<(&mut BlockObject, buffer::Buffer, buffer::Buffer)> = Vec::with_capacity(world.objects.len());
+        let mut object_buffers: Vec<(&mut BlockObject, Buffer, Buffer)> = Vec::with_capacity(world.objects.len());
 
         for object in &mut world.objects {
-            let index_buffer = buffer::Buffer::create(
+            let index_buffer = Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
                 (object.indices().len() * std::mem::size_of::<u32>()) as u64,
@@ -254,10 +254,10 @@ fn main() {
 
             index_buffer.fill(&base.device, &object.indices());
 
-            let vertex_buffer = buffer::Buffer::create(
+            let vertex_buffer = Buffer::create(
                 &base.device,
                 &base.device_memory_properties,
-                (object.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+                (object.vertices().len() * std::mem::size_of::<ColoredVertex>()) as u64, 
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
@@ -267,58 +267,52 @@ fn main() {
         }
 
         let triangle = Triangle::create(
-            &Vertex {
+            &ColoredVertex {
                 pos: [0., 2., 0., 1.],
                 color: [1., 0., 1., 1.],
-                tex_coord: [0., 0.],
             },
-            &Vertex {
+            &ColoredVertex {
                 pos: [0., -2., 0., 1.],
                 color: [1., 0., 0., 1.],
-                tex_coord: [0., 0.],
             },
-            &Vertex {
+            &ColoredVertex {
                 pos: [1., 0., 0., 0.],
                 color: [1., 0., 0., 1.],
-                tex_coord: [0., 0.],
             },
         );
-        
-        let triangle_index_buffer = buffer::Buffer::create(
+
+        let triangle_index_buffer = Buffer::create(
             &base.device,
             &base.device_memory_properties,
             (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
             triangle_index_buffer.fill(&base.device, triangle.indices());
-            
-        let triangle_vertex_buffer = buffer::Buffer::create(
+
+        let triangle_vertex_buffer = Buffer::create(
             &base.device,
             &base.device_memory_properties,
-            (triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+            (triangle.vertices().len() * std::mem::size_of::<ColoredVertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
             triangle_vertex_buffer.fill(&base.device, triangle.vertices());
         // ++++++++++++++
 
         let hud_triangle = Triangle::create(
-            &Vertex {
-                pos: [0.5, 0., 0., 1.],
-                color: [1., 0., 1., 1.],
+            &TexturedVertex {
+                pos: [1.0, 0.6, 0., 1.],
                 tex_coord: [0., 0.],
             },
-            &Vertex {
-                pos: [-0.5, 0., 0., 1.],
-                color: [1., 0., 0., 1.],
-                tex_coord: [2., 0.],
+            &TexturedVertex {
+                pos: [-1.0, 0.6, 0., 1.],
+                tex_coord: [1., 0.],
             },
-            &Vertex {
-                pos: [0., 0.5, 0., 1.],
-                color: [1., 1., 0., 1.],
-                tex_coord: [0., 2.],
+            &TexturedVertex {
+                pos: [1.0, 1.0, 0., 1.],
+                tex_coord: [0., 1.],
             },
         );
-        let hud_triangle_index_buffer = buffer::Buffer::create(
+        let hud_triangle_index_buffer = Buffer::create(
             &base.device,
             &base.device_memory_properties,
             (hud_triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
@@ -326,16 +320,16 @@ fn main() {
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         hud_triangle_index_buffer.fill(&base.device, hud_triangle.indices());
 
-        let hud_triangle_vertex_buffer = buffer::Buffer::create(
+        let hud_triangle_vertex_buffer = Buffer::create(
             &base.device,
             &base.device_memory_properties,
-            (hud_triangle.vertices().len() * std::mem::size_of::<Vertex>()) as u64, 
+            (hud_triangle.vertices().len() * std::mem::size_of::<TexturedVertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         hud_triangle_vertex_buffer.fill(&base.device, hud_triangle.vertices());
 
         // ++++++++++++++
-        let matrix_buffer = buffer::Buffer::create(
+        let matrix_buffer = Buffer::create(
             &base.device,
             &base.device_memory_properties,
             std::mem::size_of::<UniformBufferObject>() as u64,
@@ -367,21 +361,12 @@ fn main() {
                 ..Default::default()
             },
             vk::PipelineShaderStageCreateInfo {
-                s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
                 module: fragment_shader_module,
                 p_name: shader_entry_name.as_ptr(),
                 stage: vk::ShaderStageFlags::FRAGMENT,
                 ..Default::default()
             },
         ];
-
-        let vertex_input_binding_descriptions = [Vertex::binding_description()];
-
-        let vertex_input_attribute_descriptions = Vertex::attribute_desctiptions();
-
-        let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
-            .vertex_binding_descriptions(&vertex_input_binding_descriptions);
 
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
@@ -467,9 +452,15 @@ fn main() {
         let dynamic_state = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
         let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
 
+        let colored_attrs = ColoredVertex::attribute_desctiptions();
+        let colored_bindings = ColoredVertex::binding_description();
+        let colored_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&colored_attrs)
+            .vertex_binding_descriptions(&colored_bindings);
+
         let graphic_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_create_infos)
-            .vertex_input_state(&vertex_input_state_info)
+            .vertex_input_state(&colored_input_state)
             .input_assembly_state(&vertex_input_assembly_state_info)
             .viewport_state(&viewport_state_info)
             .rasterization_state(&rasterization_info)
@@ -480,9 +471,15 @@ fn main() {
             .layout(pipeline_layout)
             .render_pass(renderpass);
 
+        let textured_attrs = TexturedVertex::attribute_desctiptions();
+        let textured_bindings = TexturedVertex::binding_description();
+        let textured_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&textured_attrs)
+            .vertex_binding_descriptions(&textured_bindings);
+
         let hud_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&hud_shader_stage_create_infos)
-            .vertex_input_state(&vertex_input_state_info)
+            .vertex_input_state(&textured_input_state)
             .input_assembly_state(&vertex_input_assembly_state_info)
             .viewport_state(&viewport_state_info)
             .rasterization_state(&rasterization_info)

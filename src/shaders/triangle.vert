@@ -8,6 +8,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 proj;
 } ubo;
 
+// input is a struct ColoredVertex
 layout (location = 0) in vec4 pos;
 layout (location = 1) in vec4 color;
 

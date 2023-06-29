@@ -2,7 +2,7 @@
 name = "citrus"
 version = "0.1.0"
 authors = ["Aurel Feer <aurel.feer@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ash = {version = "0.37.1", default-features = false, features = ["linked", "debug"]}

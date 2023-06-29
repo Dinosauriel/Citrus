@@ -2,14 +2,14 @@ use std::vec;
 use std::fs;
 use rusttype::{point, Font, Scale};
 
-const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789";
 
 pub unsafe fn load_font(path: &str) -> (Vec<u8>, usize, usize) {
     let data = fs::read(path).unwrap();
     let font = Font::try_from_vec(data).unwrap();
 
     // Desired font pixel height
-    let height: usize = 48;
+    let height: usize = 72;
 
     // 2x scale in x direction to counter the aspect ratio of monospace characters.
     let scale = Scale {

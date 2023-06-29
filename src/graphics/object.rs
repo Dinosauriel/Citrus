@@ -1,17 +1,17 @@
-use super::vertex::Vertex;
+use super::vertex::*;
 
-pub trait TriangleGraphicsObject {
-    fn vertices(&self) -> &Vec<Vertex>;
+pub trait GraphicsObject<T: Vertex> {
+    fn vertices(&self) -> &Vec<T>;
     fn indices(&self) -> &Vec<u32>;
 }
 
-pub struct Triangle {
-    vertices: Vec<Vertex>,
+pub struct Triangle<T: Vertex> {
+    vertices: Vec<T>,
     indices: Vec<u32>
 }
 
-impl Triangle {
-    pub fn create(point_a: &Vertex, point_b: &Vertex, point_c: &Vertex) -> Triangle {
+impl<T: Vertex> Triangle<T> {
+    pub fn create(point_a: &T, point_b: &T, point_c: &T) -> Triangle<T> {
         Triangle {
             vertices:  vec![*point_a, *point_b, *point_c],
             indices: vec![0, 1, 2]
@@ -19,8 +19,8 @@ impl Triangle {
     }
 }
 
-impl TriangleGraphicsObject for Triangle {
-    fn vertices(&self) -> &Vec<Vertex> {
+impl<T: Vertex> GraphicsObject<T> for Triangle<T> {
+    fn vertices(&self) -> &Vec<T> {
         return &self.vertices;
     }
 

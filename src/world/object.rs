@@ -1,3 +1,4 @@
+use crate::graphics::vertex::ColoredVertex;
 use crate::world::*;
 use crate::world::block::*;
 use rand::prelude::*;
@@ -6,7 +7,7 @@ pub struct BlockObject {
     position: Vec3,
     size: Size3D,
     blocks: Vec<BlockType>,
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<ColoredVertex>,
     pub indices: Vec<u32>,
     pub is_ticking: bool,
 }
@@ -52,7 +53,7 @@ impl BlockObject {
 
     pub fn update_vertices(&mut self) {
         let block_list = self.block_list();
-        self.vertices = vec![Vertex::default(); block_list.len() * 8];
+        self.vertices = vec![ColoredVertex::default(); block_list.len() * 8];
         let mut rng = thread_rng();
 
         for (i, (x, y, z)) in block_list.into_iter().enumerate() {
@@ -60,7 +61,7 @@ impl BlockObject {
             // let color: [f32; 4] = [1., 1., 0., 0.8];
 
             for (j, [dx, dy, dz]) in BL_VERTICES.iter().enumerate() {
-                let vertex = Vertex {
+                let vertex = ColoredVertex {
                     pos: [
                         (x + dx) as f32 + self.position.x,
                         (y + dy) as f32 + self.position.y,
@@ -68,7 +69,6 @@ impl BlockObject {
                         1.0
                     ],
                     color,
-                    tex_coord: [0., 0.]
                 };
                 self.vertices[i * 8 + j] = vertex;
             }
@@ -86,8 +86,8 @@ impl BlockObject {
     }
 }
 
-impl TriangleGraphicsObject for BlockObject {
-    fn vertices(&self) -> &Vec<Vertex> {
+impl GraphicsObject<ColoredVertex> for BlockObject {
+    fn vertices(&self) -> &Vec<ColoredVertex> {
         return &self.vertices;
     }
 

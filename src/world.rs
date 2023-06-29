@@ -5,8 +5,7 @@ pub mod size;
 pub mod block;
 
 use noise::{NoiseFn, Perlin};
-use crate::graphics::vertex::Vertex;
-use crate::graphics::object::TriangleGraphicsObject;
+use crate::graphics::object::GraphicsObject;
 use object::*;
 use size::*;
 use segment::*;
@@ -254,7 +253,7 @@ impl World {
     }
 
     pub fn set_block(&mut self, coords: ICoords, block: BlockType) {
-        if coords.x > L4_SIZE_BL.x as i64 || coords.y > L4_SIZE_BL.y as i64 || coords.z > L4_SIZE_BL.z as i64 {
+        if coords.x >= L4_SIZE_BL.x as i64 || coords.y >= L4_SIZE_BL.y as i64 || coords.z >= L4_SIZE_BL.z as i64 {
             println!("[set_block]: coordinates ({}, {}, {}) are out of bounds", coords.x, coords.y, coords.z);
             return;
         }
