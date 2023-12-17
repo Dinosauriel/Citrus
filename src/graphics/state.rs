@@ -357,11 +357,11 @@ pub struct GraphicState {
 impl GraphicState {
     pub unsafe fn new(window_width: u32, window_height: u32) -> Self {
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-        // glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
+        glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
 
-        let (mut window, events) = glfw.create_window(window_width, window_height, "Teardown", glfw::WindowMode::Windowed).expect("failed to create glfw window");
+        let (mut window, events) = glfw.create_window(window_width, window_height, "Teardown", glfw::WindowMode::Windowed)
+                                    .expect("failed to create glfw window");
 
-        window.make_current();
         window.set_key_polling(true);
         window.set_cursor_mode(glfw::CursorMode::Disabled);
         window.set_cursor_pos_polling(true);

@@ -1,12 +1,46 @@
 use std::vec;
 use std::fs;
-use rusttype::{point, Font, Scale};
+use rusttype::{point, Scale};
+use crate::graphics::object::GraphicsObject;
+use crate::graphics::texture::Texture;
+use crate::graphics::vertex::TexturedVertex;
 
 const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789";
 
+pub struct Text {
+    content: String,
+    font: &'static Font,
+}
+
+impl Text {
+    pub fn new(content: &str, font: &'static Font) -> Text {
+        Text {
+            content: String::from(content),
+            font,
+        }
+    }
+}
+
+// impl GraphicsObject<TexturedVertex> for Text {
+//     fn indices(&self) -> &Vec<u32> {
+        
+//     }
+
+//     fn vertices(&self) -> &Vec<TexturedVertex> {
+        
+//     }
+// }
+
+pub struct Font {
+    name: String,
+    texture: Texture,
+    rt_font: rusttype::Font<'static>,
+    positions: Vec<(f32, f32, f32, f32)>, 
+}
+
 pub unsafe fn load_font(path: &str) -> (Vec<u8>, usize, usize) {
     let data = fs::read(path).unwrap();
-    let font = Font::try_from_vec(data).unwrap();
+    let font = rusttype::Font::try_from_vec(data).unwrap();
 
     // Desired font pixel height
     let height: usize = 72;
@@ -37,6 +71,8 @@ pub unsafe fn load_font(path: &str) -> (Vec<u8>, usize, usize) {
         .unwrap_or(0.0)
         .ceil() as usize;
 
+    let positions: Vec<_> = glyphs.iter().map(|g| { (g.position().x, g.position().y, g.scale().x, g.scale().y) }).collect();
+
     println!("width: {}, height: {}", width, height);
 
     // rasterize to row major buffer
@@ -63,5 +99,3 @@ pub unsafe fn load_font(path: &str) -> (Vec<u8>, usize, usize) {
 
     return (pixels, width, height);
 }
-
-

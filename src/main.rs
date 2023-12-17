@@ -85,6 +85,7 @@ unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
     return descriptor_pool;
 }
 
+// allocate a new descriptor set for a texture
 unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, uni_buffer: vk::Buffer, texture: &Texture, buffer_size: u64) -> Vec<vk::DescriptorSet> {
     let alloc_info = vk::DescriptorSetAllocateInfo {
         descriptor_pool: pool,
@@ -186,17 +187,16 @@ fn create_render_pass(base: &GraphicState) -> vk::RenderPass {
     }
 }
 
-unsafe fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
+fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
     let view = Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, UP);
     // let view = Mat4::look_at_rh(- cam.direction * 2., glam::Vec3::new(0., 0., 0.), camera::UP);
     let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 1000.);
 
-    let matrices = UniformBufferObject {
+    UniformBufferObject {
         model: Mat4::IDENTITY,
         view,
         proj
-    };
-    return matrices;
+    }
 }
 
 fn main() {
@@ -287,7 +287,7 @@ fn main() {
             (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-            triangle_index_buffer.fill(&base.device, triangle.indices());
+        triangle_index_buffer.fill(&base.device, triangle.indices());
 
         let triangle_vertex_buffer = Buffer::create(
             &base.device,
@@ -295,7 +295,7 @@ fn main() {
             (triangle.vertices().len() * std::mem::size_of::<ColoredVertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-            triangle_vertex_buffer.fill(&base.device, triangle.vertices());
+        triangle_vertex_buffer.fill(&base.device, triangle.vertices());
         // ++++++++++++++
 
         let hud_triangle = Triangle::create(
@@ -520,8 +520,6 @@ fn main() {
                 }
                 println!();
             }
-
-            base.window.swap_buffers();
 
             let projection_matrices = get_proj_matrices(&cam);
             matrix_buffer.fill(&base.device, &[projection_matrices]);
