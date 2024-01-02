@@ -4,7 +4,6 @@ use std::io::Cursor;
 use std::mem;
 use std::time;
 use glam::Mat4;
-use glfw::Context;
 use ash::vk;
 use citrus::config;
 use citrus::ui;
@@ -225,8 +224,28 @@ fn main() {
         // +++++++++++++++
         println!("worldgen");
 
-        let (font, font_width, font_height) = ui::text::load_font("./src/assets/DejaVuSansMono.ttf");
-        let deja_vu_texture = Texture::create_from_bytes(&base, &font, font_width as u32, font_height as u32);
+        let deja_vu = ui::font::Font::load(&base, "./src/assets/DejaVuSansMono.ttf", 72);
+
+        let dummy_text = ui::text::Text::new("abc", &deja_vu);
+        println!("{}", dummy_text.content);
+        println!("{:?}", dummy_text.indices);
+        println!("{:?}", dummy_text.vertices);
+
+        let dummy_text_index_buffer = Buffer::create(
+            &base.device,
+            &base.device_memory_properties,
+            (dummy_text.indices().len() * std::mem::size_of::<u32>()) as u64,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        dummy_text_index_buffer.fill(&base.device, dummy_text.indices());
+
+        let dummy_text_vertex_buffer = Buffer::create(
+            &base.device,
+            &base.device_memory_properties,
+            (dummy_text.vertices().len() * std::mem::size_of::<TexturedVertex>()) as u64, 
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        dummy_text_vertex_buffer.fill(&base.device, dummy_text.vertices());
 
         let mut world = World::new();
 
@@ -339,7 +358,11 @@ fn main() {
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
-        let descriptor_sets = create_descriptor_sets(&base.device, descriptor_pool, descriptor_set_layout, matrix_buffer.vk_buffer, &deja_vu_texture, mem::size_of::<UniformBufferObject>() as u64);
+        let descriptor_sets = create_descriptor_sets(
+            &base.device, descriptor_pool,
+            descriptor_set_layout, matrix_buffer.vk_buffer, 
+            &deja_vu.texture, mem::size_of::<UniformBufferObject>() as u64);
+
         let layout_create_info = vk::PipelineLayoutCreateInfo {
             set_layout_count: 1,
             p_set_layouts: &descriptor_set_layout,
@@ -584,9 +607,13 @@ fn main() {
                     }
 
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
-                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vk_buffer], &[0]);
-                    device.cmd_bind_index_buffer(draw_command_buffer, hud_triangle_index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
-                    device.cmd_draw_indexed(draw_command_buffer, hud_triangle.indices().len() as u32, 1, 0, 0, 1);
+                    // device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vk_buffer], &[0]);
+                    // device.cmd_bind_index_buffer(draw_command_buffer, hud_triangle_index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
+                    // device.cmd_draw_indexed(draw_command_buffer, hud_triangle.indices().len() as u32, 1, 0, 0, 1);
+
+                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[dummy_text_vertex_buffer.vk_buffer], &[0]);
+                    device.cmd_bind_index_buffer(draw_command_buffer, dummy_text_index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
+                    device.cmd_draw_indexed(draw_command_buffer, dummy_text.indices().len() as u32, 1, 0, 0, 1);
 
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
@@ -651,7 +678,9 @@ fn main() {
         triangle_vertex_buffer.free(&base.device);
         hud_triangle_vertex_buffer.free(&base.device);
         
-        deja_vu_texture.free(&base);
+        deja_vu.texture.free(&base);
+        dummy_text_index_buffer.free(&base.device);
+        dummy_text_vertex_buffer.free(&base.device);
 
         for (_, vertex_buffer, index_buffer) in &object_buffers {
             vertex_buffer.free(&base.device);

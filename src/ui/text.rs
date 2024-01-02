@@ -1,101 +1,90 @@
 use std::vec;
-use std::fs;
-use rusttype::{point, Scale};
+use crate::ui::font::Font;
 use crate::graphics::object::GraphicsObject;
-use crate::graphics::texture::Texture;
 use crate::graphics::vertex::TexturedVertex;
 
-const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789";
 
 pub struct Text {
-    content: String,
-    font: &'static Font,
+    pub content: String,
+    pub indices: Vec<u32>,
+    pub vertices: Vec<TexturedVertex>,
 }
 
 impl Text {
-    pub fn new(content: &str, font: &'static Font) -> Text {
+    pub fn new(content: &str, font: &Font) -> Text {
+        let n = content.len();
+        let offsets = vec![0, 1, 2, 0, 2, 3];
+        let indices = (0..6 * n).map(|x| offsets[x % 6] + 4 * (x / 6) as u32).collect::<Vec<_>>();
+
+        let glyphs: Vec<_> = font.rt_font.layout(content, font.scale, font.offset).collect();
+
+        let mut vertices = vec![TexturedVertex {
+            pos: [0.0, 0.0, 0., 0.],
+            tex_coord: [0., 0.],
+        }; 4 * n];
+
+        // create four textured vertices for each glyph
+        for (i, glyph) in glyphs.iter().enumerate() {
+
+            let mut tex_position = (0., 0., 0., 0.);
+
+            // find position of char in alphabet
+            if let Some(char) = content.chars().nth(i) {
+                if let Some(j) = crate::ui::font::ALPHABET.chars().position(|x| x == char) {
+                    println!("character {char} has index {j}");
+                    tex_position = font.positions[j];
+                }
+            }
+            
+            println!("character has texture_position {:?}", tex_position);
+
+            tex_position.0 /= font.texture.image.width as f32;
+            tex_position.2 /= font.texture.image.width as f32;
+            tex_position.1 /= font.texture.image.height as f32;
+            tex_position.3 /= font.texture.image.height as f32;
+
+            println!("character has normalized texture_position {:?}", tex_position);
+
+            // TODO: proper font scaling!
+            let pos = glyph.position();
+            if let Some(bb) = glyph.pixel_bounding_box() {
+                vertices[i * 4] = TexturedVertex {
+                    pos: [pos.x, pos.y, 0., 144.],
+                    // pos: [0., 1., 0., 2.],
+                    tex_coord: [tex_position.0, tex_position.1],
+                };
+                vertices[i * 4 + 1] = TexturedVertex {
+                    pos: [pos.x + bb.width() as f32, pos.y, 0., 144.],
+                    // pos: [1., 1., 0., 2.],
+                    tex_coord: [tex_position.0 + tex_position.2, tex_position.1],
+                };
+                vertices[i * 4 + 2] = TexturedVertex {
+                    pos: [pos.x + bb.width() as f32, pos.y - bb.height() as f32, 0., 144.],
+                    // pos: [1., 0., 0., 2.],
+                    tex_coord: [tex_position.0 + tex_position.2, tex_position.1 - tex_position.3],
+                };
+                vertices[i * 4 + 3] = TexturedVertex {
+                    pos: [pos.x, pos.y - bb.height() as f32, 0., 144.],
+                    // pos: [0., 0., 0., 2.],
+                    tex_coord: [tex_position.0, tex_position.1 - tex_position.3],
+                };
+            }
+        }
+
         Text {
             content: String::from(content),
-            font,
+            indices,
+            vertices
         }
     }
 }
 
-// impl GraphicsObject<TexturedVertex> for Text {
-//     fn indices(&self) -> &Vec<u32> {
-        
-//     }
-
-//     fn vertices(&self) -> &Vec<TexturedVertex> {
-        
-//     }
-// }
-
-pub struct Font {
-    name: String,
-    texture: Texture,
-    rt_font: rusttype::Font<'static>,
-    positions: Vec<(f32, f32, f32, f32)>, 
-}
-
-pub unsafe fn load_font(path: &str) -> (Vec<u8>, usize, usize) {
-    let data = fs::read(path).unwrap();
-    let font = rusttype::Font::try_from_vec(data).unwrap();
-
-    // Desired font pixel height
-    let height: usize = 72;
-
-    // 2x scale in x direction to counter the aspect ratio of monospace characters.
-    let scale = Scale {
-        x: height as f32 * 2.0,
-        y: height as f32,
-    };
-
-    // The origin of a line of text is at the baseline (roughly where
-    // non-descending letters sit). We don't want to clip the text, so we shift
-    // it down with an offset when laying it out. v_metrics.ascent is the
-    // distance between the baseline and the highest edge of any glyph in
-    // the font. That's enough to guarantee that there's no clipping.
-    let v_metrics = font.v_metrics(scale);
-    let offset = point(0.0, v_metrics.ascent);
-
-    // Glyphs to draw for "RustType". Feel free to try other strings.
-    let glyphs: Vec<_> = font.layout(ALPHABET, scale, offset).collect();
-
-    // Find the most visually pleasing width to display
-    let width = glyphs
-        .iter()
-        .rev()
-        .map(|g| g.position().x as f32 + g.unpositioned().h_metrics().advance_width)
-        .next()
-        .unwrap_or(0.0)
-        .ceil() as usize;
-
-    let positions: Vec<_> = glyphs.iter().map(|g| { (g.position().x, g.position().y, g.scale().x, g.scale().y) }).collect();
-
-    println!("width: {}, height: {}", width, height);
-
-    // rasterize to row major buffer
-    let mut pixels = vec![0; width * height * 4];
-    for g in glyphs {
-        if let Some(bb) = g.pixel_bounding_box() {
-            g.draw(|x, y, v| {
-                let alpha = (v * 255.) as u8;
-                let x = x as i32 + bb.min.x;
-                let y = y as i32 + bb.min.y;
-                // There's still a possibility that the glyph clips the boundaries of the bitmap
-                if (0..width as i32).contains(&x) && (0..height as i32).contains(&y) {
-                    let x = x as usize;
-                    let y = y as usize;
-                    let px = 4 * (y * width + x);
-                    pixels[px + 0] = 255;
-                    pixels[px + 1] = 255;
-                    pixels[px + 2] = 255;
-                    pixels[px + 3] = alpha;
-                }
-            })
-        }
+impl GraphicsObject<TexturedVertex> for Text {
+    fn indices(&self) -> &Vec<u32> {
+        return &self.indices;
     }
 
-    return (pixels, width, height);
+    fn vertices(&self) -> &Vec<TexturedVertex> {
+        return &self.vertices;
+    }
 }

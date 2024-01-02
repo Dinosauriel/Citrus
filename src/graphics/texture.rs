@@ -76,9 +76,10 @@ impl ImageView {
     }
 }
 
+#[derive(Debug)]
 pub struct Image {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
     vk_image: vk::Image,
     vk_memory: vk::DeviceMemory,
     vk_format: vk::Format,
@@ -223,7 +224,7 @@ impl Image {
 }
 
 pub struct Texture {
-    image: Image,
+    pub image: Image,
     pub image_view: ImageView,
     pub sampler: Sampler,
 }

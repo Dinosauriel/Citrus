@@ -17,6 +17,7 @@ pub mod world;
 pub mod config;
 pub mod ui {
     pub mod text;
+    pub mod font;
 }
 
 // Simple offset_of macro akin to C++ offsetof

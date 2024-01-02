@@ -1,7 +1,6 @@
 use std::ops::Drop;
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use glfw::Context;
 use ash;
 use ash::vk;
 use ash::extensions::{
