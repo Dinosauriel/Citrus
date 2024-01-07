@@ -25,46 +25,29 @@ impl Text {
 
         // create four textured vertices for each glyph
         for (i, glyph) in glyphs.iter().enumerate() {
-
-            let mut tex_position = (0., 0., 0., 0.);
-
-            // find position of char in alphabet
-            if let Some(char) = content.chars().nth(i) {
-                if let Some(j) = crate::ui::font::ALPHABET.chars().position(|x| x == char) {
-                    println!("character {char} has index {j}");
-                    tex_position = font.positions[j];
-                }
-            }
-            
-            println!("character has texture_position {:?}", tex_position);
-
-            tex_position.0 /= font.texture.image.width as f32;
-            tex_position.2 /= font.texture.image.width as f32;
-            tex_position.1 /= font.texture.image.height as f32;
-            tex_position.3 /= font.texture.image.height as f32;
-
-            println!("character has normalized texture_position {:?}", tex_position);
+            let tex_position = font.character_position(&content.chars().nth(i).unwrap());
+            println!("character {:?} has texture_position {:?}", content.chars().nth(i), tex_position);
 
             // TODO: proper font scaling!
             let pos = glyph.position();
             if let Some(bb) = glyph.pixel_bounding_box() {
                 vertices[i * 4] = TexturedVertex {
-                    pos: [pos.x, pos.y, 0., 144.],
+                    pos: [pos.x, pos.y, 0., 1.],
                     // pos: [0., 1., 0., 2.],
                     tex_coord: [tex_position.0, tex_position.1],
                 };
                 vertices[i * 4 + 1] = TexturedVertex {
-                    pos: [pos.x + bb.width() as f32, pos.y, 0., 144.],
+                    pos: [pos.x + bb.width() as f32, pos.y, 0., 1.],
                     // pos: [1., 1., 0., 2.],
                     tex_coord: [tex_position.0 + tex_position.2, tex_position.1],
                 };
                 vertices[i * 4 + 2] = TexturedVertex {
-                    pos: [pos.x + bb.width() as f32, pos.y - bb.height() as f32, 0., 144.],
+                    pos: [pos.x + bb.width() as f32, pos.y - bb.height() as f32, 0., 1.],
                     // pos: [1., 0., 0., 2.],
                     tex_coord: [tex_position.0 + tex_position.2, tex_position.1 - tex_position.3],
                 };
                 vertices[i * 4 + 3] = TexturedVertex {
-                    pos: [pos.x, pos.y - bb.height() as f32, 0., 144.],
+                    pos: [pos.x, pos.y - bb.height() as f32, 0., 1.],
                     // pos: [0., 0., 0., 2.],
                     tex_coord: [tex_position.0, tex_position.1 - tex_position.3],
                 };

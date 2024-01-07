@@ -1,5 +1,5 @@
 use crate::graphics::texture::Texture;
-use std::fs;
+use std::{fs, char};
 use rusttype::{point, Point, Scale};
 
 pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789";
@@ -81,5 +81,21 @@ impl Font {
                 positions
             }
         }
+    }
+
+    pub fn character_position(&self, character: &char) -> (f32, f32, f32, f32) {
+        // find position of char in alphabet
+        if let Some(j) = ALPHABET.chars().position(|x| &x == character) {
+            println!("character {character} has index {j}");
+
+            return (
+                self.positions[j].0 / self.texture.image.width as f32,
+                self.positions[j].1 / self.texture.image.height as f32,
+                self.positions[j].2 / self.texture.image.width as f32,
+                self.positions[j].3 / self.texture.image.height as f32,
+            );
+        }
+
+        return (0., 0., 0., 0.);
     }
 }

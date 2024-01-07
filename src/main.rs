@@ -38,6 +38,14 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
         ..Default::default()
     };
 
+    let hud_ubo_layout_binding = vk::DescriptorSetLayoutBinding {
+        binding: 2,
+        descriptor_count: 1,
+        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+        stage_flags: vk::ShaderStageFlags::VERTEX,
+        ..Default::default()
+    };
+
     let sampler_layout_binding = vk::DescriptorSetLayoutBinding {
         binding: 1,
         descriptor_count: 1,
@@ -46,7 +54,7 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
         ..Default::default()
     };
 
-    let bindings = [ubo_layout_binding, sampler_layout_binding];
+    let bindings = [ubo_layout_binding, hud_ubo_layout_binding, sampler_layout_binding];
 
     let layout_info = vk::DescriptorSetLayoutCreateInfo {
         binding_count: bindings.len() as u32,
@@ -61,7 +69,7 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
 unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
     let uniform_pool_size = vk::DescriptorPoolSize {
         ty: vk::DescriptorType::UNIFORM_BUFFER,
-        descriptor_count: 1,
+        descriptor_count: 2,
         ..Default::default()
     };
 
@@ -84,8 +92,9 @@ unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
     return descriptor_pool;
 }
 
-// allocate a new descriptor set for a texture
-unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, uni_buffer: vk::Buffer, texture: &Texture, buffer_size: u64) -> Vec<vk::DescriptorSet> {
+// allocate a new descriptor set for a texture sampler and a uniform buffer object
+unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, 
+                            uni_buffer: vk::Buffer, hud_uni_buffer: vk::Buffer, texture: &Texture, buffer_size: u64) -> Vec<vk::DescriptorSet> {
     let alloc_info = vk::DescriptorSetAllocateInfo {
         descriptor_pool: pool,
         descriptor_set_count: 1,
@@ -102,13 +111,6 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
         ..Default::default()
     };
 
-    let image_info = vk::DescriptorImageInfo {
-        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        image_view: texture.image_view.vk_image_view,
-        sampler: texture.sampler.vk_sampler,
-        ..Default::default()
-    };
-
     let descriptor_write = vk::WriteDescriptorSet {
         dst_set: descriptor_sets[0],
         dst_binding: 0,
@@ -116,6 +118,30 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
         descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
         descriptor_count: 1,
         p_buffer_info: &buffer_info,
+        ..Default::default()
+    };
+
+    let hud_buffer_info = vk::DescriptorBufferInfo {
+        buffer: hud_uni_buffer,
+        offset: 0,
+        range: buffer_size,
+        ..Default::default()
+    };
+
+    let hud_descriptor_write = vk::WriteDescriptorSet {
+        dst_set: descriptor_sets[0],
+        dst_binding: 2,
+        dst_array_element: 0,
+        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+        descriptor_count: 1,
+        p_buffer_info: &hud_buffer_info,
+        ..Default::default()
+    };
+
+    let image_info = vk::DescriptorImageInfo {
+        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        image_view: texture.image_view.vk_image_view,
+        sampler: texture.sampler.vk_sampler,
         ..Default::default()
     };
 
@@ -129,7 +155,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
         ..Default::default()
     };
 
-    device.update_descriptor_sets(&[descriptor_write, sampler_descriptor_write], &[]);
+    device.update_descriptor_sets(&[descriptor_write, hud_descriptor_write, sampler_descriptor_write], &[]);
 
     return descriptor_sets;
 }
@@ -188,13 +214,27 @@ fn create_render_pass(base: &GraphicState) -> vk::RenderPass {
 
 fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
     let view = Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, UP);
-    // let view = Mat4::look_at_rh(- cam.direction * 2., glam::Vec3::new(0., 0., 0.), camera::UP);
     let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 1000.);
 
     UniformBufferObject {
         model: Mat4::IDENTITY,
         view,
         proj
+    }
+}
+
+fn get_hud_matrices() -> UniformBufferObject {
+    let scale = Mat4::from_cols(
+        glam::Vec4::new(1. / 1920., 0.0, 0.0, 0.0),
+        glam::Vec4::new(0.0, 1. / 1080., 0.0, 0.0),
+        glam::Vec4::new(0.0, 0.0, 1., 0.0),
+        glam::Vec4::new(0.0, 0.0, 0.0, 1.0),
+    );
+
+    UniformBufferObject {
+        model: Mat4::IDENTITY,
+        view: Mat4::IDENTITY,
+        proj: scale,
     }
 }
 
@@ -355,13 +395,21 @@ fn main() {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
+        let hud_matrix_buffer = Buffer::create(
+            &base.device,
+            &base.device_memory_properties,
+            std::mem::size_of::<UniformBufferObject>() as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+        // ++++++++++++++
+        hud_matrix_buffer.fill(&base.device, &[get_hud_matrices()]);
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
         let descriptor_sets = create_descriptor_sets(
             &base.device, descriptor_pool,
             descriptor_set_layout, matrix_buffer.vk_buffer, 
-            &deja_vu.texture, mem::size_of::<UniformBufferObject>() as u64);
+            hud_matrix_buffer.vk_buffer, &deja_vu.texture, mem::size_of::<UniformBufferObject>() as u64);
 
         let layout_create_info = vk::PipelineLayoutCreateInfo {
             set_layout_count: 1,
@@ -688,6 +736,7 @@ fn main() {
         }
 
         matrix_buffer.free(&base.device);
+        hud_matrix_buffer.free(&base.device);
 
         for framebuffer in framebuffers {
             base.device.destroy_framebuffer(framebuffer, None);
