@@ -242,7 +242,7 @@ impl Texture {
             buffer_size,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::MemoryPropertyFlags::HOST_VISIBLE |  vk::MemoryPropertyFlags::HOST_COHERENT);
-        buffer.fill(&g_state.device, bytes);
+        buffer.fill( bytes);
 
         let image = Image::create(
             g_state,

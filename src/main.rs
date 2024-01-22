@@ -270,9 +270,6 @@ fn main() {
         let deja_vu = ui::font::Font::load(&base, "./src/assets/DejaVuSansMono.ttf", 72);
 
         let dummy_text = ui::text::Text::new("abc", &deja_vu);
-        println!("{}", dummy_text.content);
-        println!("{:?}", dummy_text.indices);
-        println!("{:?}", dummy_text.vertices);
 
         let dummy_text_index_buffer = Buffer::create(
             &base.device,
@@ -280,7 +277,7 @@ fn main() {
             (dummy_text.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        dummy_text_index_buffer.fill(&base.device, dummy_text.indices());
+        dummy_text_index_buffer.fill( dummy_text.indices());
 
         let dummy_text_vertex_buffer = Buffer::create(
             &base.device,
@@ -288,7 +285,7 @@ fn main() {
             (dummy_text.vertices().len() * std::mem::size_of::<TexturedVertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        dummy_text_vertex_buffer.fill(&base.device, dummy_text.vertices());
+        dummy_text_vertex_buffer.fill(dummy_text.vertices());
 
         let mut world = World::new();
 
@@ -301,9 +298,6 @@ fn main() {
         object1.update_vertices();
         world.objects.push(object1);
 
-        let n = world.objects.len();
-        println!("{n} objects found");
-
         let mut object_buffers: Vec<(&mut BlockObject, Buffer, Buffer)> = Vec::with_capacity(world.objects.len());
 
         for object in &mut world.objects {
@@ -314,7 +308,7 @@ fn main() {
                 vk::BufferUsageFlags::INDEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-            index_buffer.fill(&base.device, &object.indices());
+            index_buffer.fill(&object.indices());
 
             let vertex_buffer = Buffer::create(
                 &base.device,
@@ -323,7 +317,7 @@ fn main() {
                 vk::BufferUsageFlags::VERTEX_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
 
-            vertex_buffer.fill(&base.device, &object.vertices());
+            vertex_buffer.fill(&object.vertices());
 
             object_buffers.push((object, vertex_buffer, index_buffer));
         }
@@ -349,7 +343,7 @@ fn main() {
             (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        triangle_index_buffer.fill(&base.device, triangle.indices());
+        triangle_index_buffer.fill(triangle.indices());
 
         let triangle_vertex_buffer = Buffer::create(
             &base.device,
@@ -357,7 +351,7 @@ fn main() {
             (triangle.vertices().len() * std::mem::size_of::<ColoredVertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        triangle_vertex_buffer.fill(&base.device, triangle.vertices());
+        triangle_vertex_buffer.fill(triangle.vertices());
         // ++++++++++++++
 
         let hud_triangle = Triangle::create(
@@ -380,7 +374,7 @@ fn main() {
             (hud_triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        hud_triangle_index_buffer.fill(&base.device, hud_triangle.indices());
+        hud_triangle_index_buffer.fill(hud_triangle.indices());
 
         let hud_triangle_vertex_buffer = Buffer::create(
             &base.device,
@@ -388,7 +382,7 @@ fn main() {
             (hud_triangle.vertices().len() * std::mem::size_of::<TexturedVertex>()) as u64, 
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        hud_triangle_vertex_buffer.fill(&base.device, hud_triangle.vertices());
+        hud_triangle_vertex_buffer.fill(hud_triangle.vertices());
 
         // ++++++++++++++
         let matrix_buffer = Buffer::create(
@@ -405,7 +399,7 @@ fn main() {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
-        hud_matrix_buffer.fill(&base.device, &[get_hud_ubo()]);
+        hud_matrix_buffer.fill(&[get_hud_ubo()]);
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
@@ -596,7 +590,7 @@ fn main() {
             }
 
             let projection_matrices = get_proj_matrices(&cam);
-            matrix_buffer.fill(&base.device, &[projection_matrices]);
+            matrix_buffer.fill(&[projection_matrices]);
 
             let (present_index, _) = base
                 .swapchain_loader
@@ -699,7 +693,7 @@ fn main() {
                         let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
                         object.tick(now.as_millis());
                         object.update_vertices();
-                        vertex_buffer.fill(&base.device, object.vertices());
+                        vertex_buffer.fill(object.vertices());
                     }
                 }
             }
