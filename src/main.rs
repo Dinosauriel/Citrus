@@ -17,16 +17,23 @@ use citrus::graphics::object::*;
 use citrus::graphics::vertex::*;
 use citrus::graphics::buffer::*;
 use citrus::graphics::camera::*;
-use citrus::graphics::state::GraphicState;
+use citrus::graphics::state::*;
 use citrus::graphics::texture::Texture;
-use citrus::graphics::state::submit_commandbuffer;
 
+#[repr(C)]
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
 struct UniformBufferObject {
     model: Mat4,
     view: Mat4,
     proj: Mat4,
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+#[allow(dead_code)]
+struct HudUBO {
+    scale: Mat4,
 }
 
 unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::DescriptorSetLayout {
@@ -94,7 +101,7 @@ unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
 
 // allocate a new descriptor set for a texture sampler and a uniform buffer object
 unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool, layout: vk::DescriptorSetLayout, 
-                            uni_buffer: vk::Buffer, hud_uni_buffer: vk::Buffer, texture: &Texture, buffer_size: u64) -> Vec<vk::DescriptorSet> {
+                            uni_buffer: vk::Buffer, hud_uni_buffer: vk::Buffer, texture: &Texture) -> Vec<vk::DescriptorSet> {
     let alloc_info = vk::DescriptorSetAllocateInfo {
         descriptor_pool: pool,
         descriptor_set_count: 1,
@@ -107,7 +114,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
     let buffer_info = vk::DescriptorBufferInfo {
         buffer: uni_buffer,
         offset: 0,
-        range: buffer_size,
+        range: mem::size_of::<UniformBufferObject>() as u64,
         ..Default::default()
     };
 
@@ -124,7 +131,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
     let hud_buffer_info = vk::DescriptorBufferInfo {
         buffer: hud_uni_buffer,
         offset: 0,
-        range: buffer_size,
+        range: mem::size_of::<HudUBO>() as u64,
         ..Default::default()
     };
 
@@ -223,18 +230,14 @@ fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
     }
 }
 
-fn get_hud_matrices() -> UniformBufferObject {
-    let scale = Mat4::from_cols(
-        glam::Vec4::new(1. / 1920., 0.0, 0.0, 0.0),
-        glam::Vec4::new(0.0, 1. / 1080., 0.0, 0.0),
-        glam::Vec4::new(0.0, 0.0, 1., 0.0),
-        glam::Vec4::new(0.0, 0.0, 0.0, 1.0),
-    );
-
-    UniformBufferObject {
-        model: Mat4::IDENTITY,
-        view: Mat4::IDENTITY,
-        proj: scale,
+fn get_hud_ubo() -> HudUBO {
+    HudUBO {
+        scale: Mat4::from_cols(
+            glam::Vec4::new(1. / 1920., 0.0, 0.0, 0.0),
+            glam::Vec4::new(0.0, 1. / 1080., 0.0, 0.0),
+            glam::Vec4::new(0.0, 0.0, 1., 0.0),
+            glam::Vec4::new(0.0, 0.0, 0.0, 1.0),
+        ),
     }
 }
 
@@ -398,18 +401,18 @@ fn main() {
         let hud_matrix_buffer = Buffer::create(
             &base.device,
             &base.device_memory_properties,
-            std::mem::size_of::<UniformBufferObject>() as u64,
+            std::mem::size_of::<HudUBO>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
-        hud_matrix_buffer.fill(&base.device, &[get_hud_matrices()]);
+        hud_matrix_buffer.fill(&base.device, &[get_hud_ubo()]);
 
         let descriptor_pool = create_descriptor_pool(&base.device);
         let descriptor_set_layout = create_descriptor_set_layout(&base.device);
         let descriptor_sets = create_descriptor_sets(
             &base.device, descriptor_pool,
             descriptor_set_layout, matrix_buffer.vk_buffer, 
-            hud_matrix_buffer.vk_buffer, &deja_vu.texture, mem::size_of::<UniformBufferObject>() as u64);
+            hud_matrix_buffer.vk_buffer, &deja_vu.texture);
 
         let layout_create_info = vk::PipelineLayoutCreateInfo {
             set_layout_count: 1,

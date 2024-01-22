@@ -1,4 +1,6 @@
 use crate::graphics::texture::Texture;
+use crate::graphics::geometry::*;
+use glam::Vec2;
 use std::{fs, char};
 use rusttype::{point, Point, Scale};
 
@@ -9,7 +11,7 @@ pub struct Font {
     pub offset: Point<f32>,
     pub texture: Texture,
     pub rt_font: rusttype::Font<'static>,
-    pub positions: Vec<(f32, f32, f32, f32)>, 
+    pub positions: Vec<Rect2D>, 
 }
 
 impl Font {
@@ -43,8 +45,11 @@ impl Font {
             .unwrap_or(0.0)
             .ceil() as usize;
 
-        let positions: Vec<_> = glyphs.iter().map(|g| 
-                                                (g.position().x, g.position().y, g.pixel_bounding_box().unwrap().width() as f32, g.pixel_bounding_box().unwrap().height() as f32)).collect();
+        let positions: Vec<_> = glyphs.iter().map(
+            |g| Rect2D {
+                position: Vec2::new(g.position().x, g.position().y),
+                size: Vec2::new(g.pixel_bounding_box().unwrap().width() as f32, g.pixel_bounding_box().unwrap().height() as f32),
+            }).collect();
 
         println!("width: {}, height: {}", width, font_size);
 
@@ -83,19 +88,15 @@ impl Font {
         }
     }
 
-    pub fn character_position(&self, character: &char) -> (f32, f32, f32, f32) {
+    pub fn character_position(&self, character: &char) -> Rect2D {
         // find position of char in alphabet
         if let Some(j) = ALPHABET.chars().position(|x| &x == character) {
             println!("character {character} has index {j}");
-
-            return (
-                self.positions[j].0 / self.texture.image.width as f32,
-                self.positions[j].1 / self.texture.image.height as f32,
-                self.positions[j].2 / self.texture.image.width as f32,
-                self.positions[j].3 / self.texture.image.height as f32,
-            );
+            return Rect2D {
+                position: self.positions[j].position / Vec2::new(self.texture.image.width as f32, self.texture.image.height as f32),
+                size: self.positions[j].size / Vec2::new(self.texture.image.width as f32, self.texture.image.height as f32),
+            };
         }
-
-        return (0., 0., 0., 0.);
+        Rect2D::ZERO
     }
 }

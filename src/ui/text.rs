@@ -34,22 +34,22 @@ impl Text {
                 vertices[i * 4] = TexturedVertex {
                     pos: [pos.x, pos.y, 0., 1.],
                     // pos: [0., 1., 0., 2.],
-                    tex_coord: [tex_position.0, tex_position.1],
+                    tex_coord: [tex_position.position.x, tex_position.position.y],
                 };
                 vertices[i * 4 + 1] = TexturedVertex {
                     pos: [pos.x + bb.width() as f32, pos.y, 0., 1.],
                     // pos: [1., 1., 0., 2.],
-                    tex_coord: [tex_position.0 + tex_position.2, tex_position.1],
+                    tex_coord: [tex_position.position.x + tex_position.size.x, tex_position.position.y],
                 };
                 vertices[i * 4 + 2] = TexturedVertex {
                     pos: [pos.x + bb.width() as f32, pos.y - bb.height() as f32, 0., 1.],
                     // pos: [1., 0., 0., 2.],
-                    tex_coord: [tex_position.0 + tex_position.2, tex_position.1 - tex_position.3],
+                    tex_coord: [tex_position.position.x + tex_position.size.x, tex_position.position.y - tex_position.size.y],
                 };
                 vertices[i * 4 + 3] = TexturedVertex {
                     pos: [pos.x, pos.y - bb.height() as f32, 0., 1.],
                     // pos: [0., 0., 0., 2.],
-                    tex_coord: [tex_position.0, tex_position.1 - tex_position.3],
+                    tex_coord: [tex_position.position.x, tex_position.position.y - tex_position.size.y],
                 };
             }
         }

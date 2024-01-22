@@ -12,6 +12,7 @@ pub mod graphics {
     pub mod buffer;
     pub mod texture;
     pub mod vertex;
+    pub mod geometry;
 }
 pub mod world;
 pub mod config;
