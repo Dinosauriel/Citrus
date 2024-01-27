@@ -1,5 +1,4 @@
 use std::default::Default;
-use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 use std::time;
@@ -264,28 +263,11 @@ fn main() {
         let mut cam = Camera::default();
         let mut input_state = InputState::default();
 
-        // +++++++++++++++
-        println!("worldgen");
-
         let deja_vu = ui::font::Font::load(&base, "./src/assets/DejaVuSansMono.ttf", 72);
 
         let dummy_text = ui::text::Text::new("abc", &deja_vu);
-
-        let dummy_text_index_buffer = Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (dummy_text.indices().len() * std::mem::size_of::<u32>()) as u64,
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        dummy_text_index_buffer.fill( dummy_text.indices());
-
-        let dummy_text_vertex_buffer = Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (dummy_text.vertices().len() * std::mem::size_of::<TexturedVertex>()) as u64, 
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        dummy_text_vertex_buffer.fill(dummy_text.vertices());
+        let dummy_text_index_buffer = dummy_text.index_buffer(&base.device, &base.device_memory_properties);
+        let dummy_text_vertex_buffer = dummy_text.vertex_buffer(&base.device, &base.device_memory_properties);
 
         let mut world = World::new();
 
@@ -301,24 +283,8 @@ fn main() {
         let mut object_buffers: Vec<(&mut BlockObject, Buffer, Buffer)> = Vec::with_capacity(world.objects.len());
 
         for object in &mut world.objects {
-            let index_buffer = Buffer::create(
-                &base.device,
-                &base.device_memory_properties,
-                (object.indices().len() * std::mem::size_of::<u32>()) as u64,
-                vk::BufferUsageFlags::INDEX_BUFFER,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-
-            index_buffer.fill(&object.indices());
-
-            let vertex_buffer = Buffer::create(
-                &base.device,
-                &base.device_memory_properties,
-                (object.vertices().len() * std::mem::size_of::<ColoredVertex>()) as u64, 
-                vk::BufferUsageFlags::VERTEX_BUFFER,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-
-            vertex_buffer.fill(&object.vertices());
-
+            let vertex_buffer = object.vertex_buffer(&base.device, &base.device_memory_properties);
+            let index_buffer = object.index_buffer(&base.device, &base.device_memory_properties);
             object_buffers.push((object, vertex_buffer, index_buffer));
         }
 
@@ -337,21 +303,8 @@ fn main() {
             },
         );
 
-        let triangle_index_buffer = Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        triangle_index_buffer.fill(triangle.indices());
-
-        let triangle_vertex_buffer = Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (triangle.vertices().len() * std::mem::size_of::<ColoredVertex>()) as u64, 
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        triangle_vertex_buffer.fill(triangle.vertices());
+        let triangle_index_buffer = triangle.index_buffer(&base.device, &base.device_memory_properties);
+        let triangle_vertex_buffer = triangle.vertex_buffer(&base.device, &base.device_memory_properties);
         // ++++++++++++++
 
         let hud_triangle = Triangle::create(
@@ -368,21 +321,8 @@ fn main() {
                 tex_coord: [0., 1.],
             },
         );
-        let hud_triangle_index_buffer = Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (hud_triangle.indices().len() * std::mem::size_of::<u32>()) as u64,
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        hud_triangle_index_buffer.fill(hud_triangle.indices());
-
-        let hud_triangle_vertex_buffer = Buffer::create(
-            &base.device,
-            &base.device_memory_properties,
-            (hud_triangle.vertices().len() * std::mem::size_of::<TexturedVertex>()) as u64, 
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
-        hud_triangle_vertex_buffer.fill(hud_triangle.vertices());
+        let hud_triangle_index_buffer = hud_triangle.index_buffer(&base.device, &base.device_memory_properties);
+        let hud_triangle_vertex_buffer = hud_triangle.vertex_buffer(&base.device, &base.device_memory_properties);
 
         // ++++++++++++++
         let matrix_buffer = Buffer::create(
@@ -420,21 +360,7 @@ fn main() {
         let vertex_shader_module = get_shader_module(&mut vertex_spv_file, &base.device);
         let fragment_shader_module = get_shader_module(&mut frag_spv_file, &base.device);
 
-        let shader_entry_name = CStr::from_bytes_with_nul_unchecked(b"main\0");
-        let shader_stage_create_infos = [
-            vk::PipelineShaderStageCreateInfo {
-                module: vertex_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::VERTEX,
-                ..Default::default()
-            },
-            vk::PipelineShaderStageCreateInfo {
-                module: fragment_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::FRAGMENT,
-                ..Default::default()
-            },
-        ];
+        let shader_stage_create_infos = get_shader_stage_create_infos(vertex_shader_module, fragment_shader_module);
 
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
@@ -446,21 +372,7 @@ fn main() {
         let hud_vertex_shader_module = get_shader_module(&mut hud_vertex_spv, &base.device);
         let hud_fragment_shader_module = get_shader_module(&mut hud_frag_spv, &base.device);
 
-        let hud_shader_stage_create_infos = [
-            vk::PipelineShaderStageCreateInfo {
-                module: hud_vertex_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::VERTEX,
-                ..Default::default()
-            },
-            vk::PipelineShaderStageCreateInfo {
-                module: hud_fragment_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::FRAGMENT,
-                ..Default::default()
-            },
-        ];
-
+        let hud_shader_stage_create_infos = get_shader_stage_create_infos(hud_vertex_shader_module, hud_fragment_shader_module);
 
         let viewports = [vk::Viewport {
             x: 0.0,

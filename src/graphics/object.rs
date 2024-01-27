@@ -1,8 +1,30 @@
-use super::vertex::*;
+use super::{buffer::Buffer, vertex::*};
 
 pub trait GraphicsObject<T: Vertex> {
     fn vertices(&self) -> &Vec<T>;
     fn indices(&self) -> &Vec<u32>;
+
+    unsafe fn index_buffer<'a>(&self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) -> Buffer<'a> {
+        let buffer = Buffer::create(
+            &device,
+            &device_memory_properties,
+            (self.indices().len() * std::mem::size_of::<u32>()) as u64,
+            ash::vk::BufferUsageFlags::INDEX_BUFFER,
+            ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT);
+        buffer.fill( self.indices());
+        return buffer;
+    }
+    
+    unsafe fn vertex_buffer<'a>(&self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) -> Buffer<'a> {
+        let buffer = Buffer::create(
+            &device,
+            &device_memory_properties,
+            (self.vertices().len() * std::mem::size_of::<T>()) as u64, 
+            ash::vk::BufferUsageFlags::VERTEX_BUFFER,
+            ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT);
+        buffer.fill(self.vertices());
+        return buffer;
+    }
 }
 
 pub struct Triangle<T: Vertex> {
