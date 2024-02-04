@@ -1,5 +1,6 @@
 use super::{buffer::Buffer, vertex::*};
 
+// an object that provides an array of vertices and an array of indices for graphics rendering
 pub trait GraphicsObject<T: Vertex> {
     fn vertices(&self) -> &Vec<T>;
     fn indices(&self) -> &Vec<u32>;

@@ -231,8 +231,8 @@ pub struct Texture {
 
 impl Texture {
     pub unsafe fn create_from_bytes(g_state: &GraphicState, bytes: &[u8], width: u32, height: u32) -> Self {
-        // let img: image::ImageBuffer<image::Rgba<u8>, &[u8]> = image::ImageBuffer::from_raw(width, height, bytes).expect("couldnt read raw image");
-        // img.save("texture.png").expect("could not save image");
+        let img: image::ImageBuffer<image::Rgba<u8>, &[u8]> = image::ImageBuffer::from_raw(width, height, bytes).expect("couldnt read raw image");
+        img.save("texture.png").expect("could not save image");
 
         let buffer_size: vk::DeviceSize = 4 * (width as u64) * (height as u64);
 

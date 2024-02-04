@@ -1,11 +1,10 @@
 use std::vec;
+use rusttype::point;
 use crate::ui::font::Font;
 use crate::graphics::object::GraphicsObject;
 use crate::graphics::vertex::TexturedVertex;
 
-
 pub struct Text {
-    pub content: String,
     pub indices: Vec<u32>,
     pub vertices: Vec<TexturedVertex>,
 }
@@ -15,7 +14,7 @@ impl Text {
         let offsets = vec![0, 1, 2, 0, 2, 3];
         let indices = (0..6 * content.len()).map(|x| offsets[x % 6] + 4 * (x / 6) as u32).collect::<Vec<_>>();
 
-        let glyphs: Vec<_> = font.rt_font.layout(content, font.scale, font.offset).collect();
+        let glyphs: Vec<_> = font.rt_font.layout(content, font.scale, point(0., font.ascent)).collect();
 
         let mut vertices = vec![TexturedVertex {
             pos: [0.0, 0.0, 0., 0.],
@@ -24,33 +23,34 @@ impl Text {
 
         // create four textured vertices for each glyph
         for (i, glyph) in glyphs.iter().enumerate() {
-            let tex_position = font.character_position(&content.chars().nth(i).unwrap());
-            // println!("character {:?} has texture_position {:?}", content.chars().nth(i), tex_position);
+            let rect = font.character_rect(&content.chars().nth(i).unwrap());
+            println!("character {:?} has rect {:?}", content.chars().nth(i), rect);
 
-            // TODO: proper font scaling!
-            let pos = glyph.position();
             if let Some(bb) = glyph.pixel_bounding_box() {
+                // bottom left
                 vertices[i * 4] = TexturedVertex {
-                    pos: [pos.x, pos.y, 0., 1.],
-                    tex_coord: [tex_position.position.x, tex_position.position.y],
+                    pos: [bb.min.x as f32, bb.max.y as f32, 0., 1.],
+                    tex_coord: [rect.min.x, rect.max.y],
                 };
+                // bottom right
                 vertices[i * 4 + 1] = TexturedVertex {
-                    pos: [pos.x + bb.width() as f32, pos.y, 0., 1.],
-                    tex_coord: [tex_position.position.x + tex_position.size.x, tex_position.position.y],
+                    pos: [bb.max.x as f32, bb.max.y as f32, 0., 1.],
+                    tex_coord: [rect.max.x, rect.max.y],
                 };
+                // top right
                 vertices[i * 4 + 2] = TexturedVertex {
-                    pos: [pos.x + bb.width() as f32, pos.y - bb.height() as f32, 0., 1.],
-                    tex_coord: [tex_position.position.x + tex_position.size.x, tex_position.position.y - tex_position.size.y],
+                    pos: [bb.max.x as f32, bb.min.y as f32, 0., 1.],
+                    tex_coord: [rect.max.x, rect.min.y],
                 };
+                // top left
                 vertices[i * 4 + 3] = TexturedVertex {
-                    pos: [pos.x, pos.y - bb.height() as f32, 0., 1.],
-                    tex_coord: [tex_position.position.x, tex_position.position.y - tex_position.size.y],
+                    pos: [bb.min.x as f32, bb.min.y as f32, 0., 1.],
+                    tex_coord: [rect.min.x, rect.min.y],
                 };
             }
         }
 
         Text {
-            content: String::from(content),
             indices,
             vertices
         }
