@@ -50,6 +50,13 @@ pub struct TexturedVertex {
     pub tex_coord: [f32; 2],
 }
 
+impl TexturedVertex {
+    pub const ZERO: Self = TexturedVertex {
+        pos: [0.; 4],
+        tex_coord: [0.; 2]
+    };
+}
+
 impl Vertex for TexturedVertex {
     fn binding_description() -> [vk::VertexInputBindingDescription; 1] {
         [vk::VertexInputBindingDescription {

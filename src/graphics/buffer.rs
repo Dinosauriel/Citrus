@@ -2,6 +2,7 @@ use ash::vk;
 use ash::util::Align;
 use std::mem::align_of;
 use crate::*;
+use super::vertex::Vertex;
 
 pub struct Buffer<'a> {
     device: &'a ash::Device,
@@ -11,7 +12,7 @@ pub struct Buffer<'a> {
 }
 
 impl<'l> Buffer<'l> {
-    pub unsafe fn create(
+    pub unsafe fn new(
             device: &'l ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
             size: vk::DeviceSize, usage: vk::BufferUsageFlags, properties: vk::MemoryPropertyFlags) 
                 -> Self {
@@ -43,6 +44,39 @@ impl<'l> Buffer<'l> {
             memory,
             memory_requirements: memory_req
         }
+    }
+
+    // new index buffer with "reasonable" defaults
+    // - capacity: number of indices
+    pub unsafe fn new_index(capacity: usize, device: &'l ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties) -> Self {
+        Buffer::new(
+            &device,
+            &device_memory_properties,
+            (capacity * std::mem::size_of::<u32>()) as u64,
+            ash::vk::BufferUsageFlags::INDEX_BUFFER,
+            ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT)
+    }
+
+    // new vertex buffer with "reasonable" defaults
+    // - capacity: number of vertices.
+    pub unsafe fn new_vertex<T: Vertex>(capacity: usize, device: &'l ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties) -> Self {
+        Buffer::new(
+            &device,
+            &device_memory_properties,
+            (capacity * std::mem::size_of::<T>()) as u64, 
+            ash::vk::BufferUsageFlags::VERTEX_BUFFER,
+            ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT)
+    }
+
+    // new vertex buffer with "reasonable" defaults
+    // - capacity: size in bytes.
+    pub unsafe fn new_uniform(capacity: usize, device: &'l ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties) -> Self {
+        Buffer::new(
+            &device,
+            &device_memory_properties,
+            capacity as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)
     }
 
     pub unsafe fn fill<T: std::marker::Copy>(&self, content: &[T]) {

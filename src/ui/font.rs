@@ -2,7 +2,7 @@ use crate::graphics::texture::Texture;
 use std::{char, collections::HashMap, fs};
 use rusttype::{point, Scale, Rect};
 
-pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789";
+pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789.,";
 
 pub struct Font {
     pub font_size: usize,
@@ -87,10 +87,13 @@ impl Font {
     }
 
     pub fn character_rect(&self, c: &char) -> Rect<f32> {
-        let rect = self.positions.get(c).unwrap();
-        Rect {
-            min: point(rect.min.x as f32 / self.texture.image.width as f32, rect.min.y as f32 / self.texture.image.height as f32),
-            max: point(rect.max.x as f32 / self.texture.image.width as f32, rect.max.y as f32 / self.texture.image.height as f32),
+        if let Some(rect) = self.positions.get(c) {
+            return Rect {
+                min: point(rect.min.x as f32 / self.texture.image.width as f32, rect.min.y as f32 / self.texture.image.height as f32),
+                max: point(rect.max.x as f32 / self.texture.image.width as f32, rect.max.y as f32 / self.texture.image.height as f32),
+            }
         }
+        // println!("character {} not in alphabet!", c);
+        Rect {min: point(0., 0.), max: point(0., 0.)}
     }
 }

@@ -181,26 +181,25 @@ impl ICoords {
     }
 }
 
-pub struct World {
-    pub objects: Vec<BlockObject>,
+pub struct World<'a> {
+    pub objects: Vec<BlockObject<'a>>,
     noise: Perlin,
     pub structure: L4Segment,
 }
 
-impl World {
-    pub fn new() -> Self {
+impl<'a> World<'a> {
+    pub unsafe fn new(device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) -> Self {
         let mut w = World {
             objects: Vec::new(),
             noise: Perlin::new(12),
             structure: L4Segment::default()
         };
 
-        w.populate();
-
-        return w;
+        w.populate(device, device_memory_properties);
+        w
     }
 
-    fn populate(&mut self) {
+    unsafe fn populate(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
         let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
         let t = (now.as_millis() % 10000) as f64;
         for x in 0 .. L2_SIZE_BL.x as i64 {
@@ -222,7 +221,7 @@ impl World {
                                 let y_offset = l3y * L3_SIZE_BL.y + l2y * L2_SIZE_BL.y + l1y * L1_SIZE_BL.y;
                                 let z_offset = l3z * L3_SIZE_BL.z + l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
 
-                                let o = l1.object(Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
+                                let o = l1.object(device, device_memory_properties, Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
                                 self.objects.push(o);
                             }
                         }
