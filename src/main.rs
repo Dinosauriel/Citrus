@@ -18,6 +18,7 @@ use citrus::graphics::buffer::*;
 use citrus::graphics::camera::*;
 use citrus::graphics::state::*;
 use citrus::graphics::texture::Texture;
+use glam::Vec2;
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -232,8 +233,8 @@ fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
 fn get_hud_ubo() -> HudUBO {
     HudUBO {
         scale: Mat4::from_cols(
-            glam::Vec4::new(1. / 1920., 0.0, 0.0, 0.0),
-            glam::Vec4::new(0.0, 1. / 1080., 0.0, 0.0),
+            glam::Vec4::new(1. / 960., 0.0, 0.0, 0.0),
+            glam::Vec4::new(0.0, 1. / 540., 0.0, 0.0),
             glam::Vec4::new(0.0, 0.0, 1., 0.0),
             glam::Vec4::new(0.0, 0.0, 0.0, 1.0),
         ),
@@ -263,7 +264,7 @@ fn main() {
         let mut cam = Camera::default();
         let mut input_state = InputState::default();
 
-        let deja_vu = ui::font::Font::load(&base, "./src/assets/DejaVuSansMono.ttf", 72);
+        let deja_vu = ui::font::Font::load(&base, "./src/assets/DejaVuSansMono.ttf", 48);
 
         let mut dummy_text = ui::text::Text::new(&base.device, &base.device_memory_properties, 32);
 
@@ -287,23 +288,6 @@ fn main() {
             &ColoredVertex {
                 pos: [1., 0., 0., 0.],
                 color: [1., 0., 0., 1.],
-            },
-        );
-
-        // ++++++++++++++
-
-        let hud_triangle = Triangle::new(&base.device, &base.device_memory_properties,
-            &TexturedVertex {
-                pos: [1.0, 0.6, 0., 1.],
-                tex_coord: [0., 0.],
-            },
-            &TexturedVertex {
-                pos: [-1.0, 0.6, 0., 1.],
-                tex_coord: [1., 0.],
-            },
-            &TexturedVertex {
-                pos: [1.0, 1.0, 0., 1.],
-                tex_coord: [0., 1.],
             },
         );
 
@@ -487,7 +471,7 @@ fn main() {
             let projection_matrices = get_proj_matrices(&cam);
             matrix_buffer.fill(&[projection_matrices]);
             
-            dummy_text.update(&format!("{:.2} {:.2} {:.2}", cam.ray.origin.x, cam.ray.origin.y, cam.ray.origin.z), &deja_vu);
+            dummy_text.update(&format!("{:.2} {:.2} {:.2}", cam.ray.origin.x, cam.ray.origin.y, cam.ray.origin.z), &deja_vu, &Vec2::new(-860., 440.));
 
             let (present_index, _) = base
                 .swapchain_loader
@@ -549,9 +533,6 @@ fn main() {
                     }
 
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
-                    // device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[hud_triangle_vertex_buffer.vk_buffer], &[0]);
-                    // device.cmd_bind_index_buffer(draw_command_buffer, hud_triangle_index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
-                    // device.cmd_draw_indexed(draw_command_buffer, hud_triangle.indices().len() as u32, 1, 0, 0, 1);
 
                     device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[dummy_text.vertex_buffer().vk_buffer], &[0]);
                     device.cmd_bind_index_buffer(draw_command_buffer, dummy_text.index_buffer().vk_buffer, 0, vk::IndexType::UINT32);
@@ -615,11 +596,8 @@ fn main() {
         base.device.destroy_shader_module(hud_fragment_shader_module, None);
 
         triangle.index_buffer().free(&base.device);
-        hud_triangle.index_buffer().free(&base.device);
-
         triangle.vertex_buffer().free(&base.device);
-        hud_triangle.vertex_buffer().free(&base.device);
-        
+
         deja_vu.texture.free(&base);
         dummy_text.index_buffer().free(&base.device);
         dummy_text.vertex_buffer().free(&base.device);

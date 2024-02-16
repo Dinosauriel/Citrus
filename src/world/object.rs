@@ -6,7 +6,6 @@ use rand::prelude::*;
 
 pub struct BlockObject<'a> {
     position: Vec3,
-    size: Size3D,
     pub vertices: Vec<ColoredVertex>,
     pub indices: Vec<u32>,
     vertex_buffer: Buffer<'a>,
@@ -30,7 +29,6 @@ impl<'a> BlockObject<'a> {
 
         BlockObject {
             position: *position,
-            size: *size,
             vertices,
             indices,
             vertex_buffer,
@@ -91,13 +89,7 @@ impl<'a> BlockObject<'a> {
     }
 
     fn block_list(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<(usize, usize, usize)> {
-        let mut list = vec![(0, 0, 0); 0];
-        for (x, y, z) in size.into_iter() {
-            if blocks[size.coordinates_1_d(x, y, z)] != BlockType::NoBlock {
-                list.push((x, y, z));
-            }
-        }
-        return list;
+        size.into_iter().filter(|(x, y, z)| blocks[size.coordinates_1_d(*x, *y, *z)] != BlockType::NoBlock).collect()
     }
 }
 

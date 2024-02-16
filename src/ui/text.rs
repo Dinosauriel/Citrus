@@ -1,4 +1,5 @@
 use std::vec;
+use glam::Vec2;
 use rusttype::point;
 use crate::graphics::buffer::Buffer;
 use crate::ui::font::Font;
@@ -40,7 +41,7 @@ impl<'a> Text<'a> {
         }
     }
 
-    pub unsafe fn update(&mut self, content: &str, font: &Font) {
+    pub unsafe fn update(&mut self, content: &str, font: &Font, position: &Vec2) {
         if content.len() > self.capacity {
             println!("content is too long for capacity {}", self.capacity);
             return;
@@ -58,22 +59,22 @@ impl<'a> Text<'a> {
             if let Some(bb) = glyph.pixel_bounding_box() {
                 // bottom left
                 self.vertices[i * 4] = TexturedVertex {
-                    pos: [bb.min.x as f32, bb.max.y as f32, 0., 1.],
+                    pos: [bb.min.x as f32 + position.x, bb.max.y as f32 + position.y, 0., 1.],
                     tex_coord: [rect.min.x, rect.max.y],
                 };
                 // bottom right
                 self.vertices[i * 4 + 1] = TexturedVertex {
-                    pos: [bb.max.x as f32, bb.max.y as f32, 0., 1.],
+                    pos: [bb.max.x as f32 + position.x, bb.max.y as f32 + position.y, 0., 1.],
                     tex_coord: [rect.max.x, rect.max.y],
                 };
                 // top right
                 self.vertices[i * 4 + 2] = TexturedVertex {
-                    pos: [bb.max.x as f32, bb.min.y as f32, 0., 1.],
+                    pos: [bb.max.x as f32 + position.x, bb.min.y as f32 + position.y, 0., 1.],
                     tex_coord: [rect.max.x, rect.min.y],
                 };
                 // top left
                 self.vertices[i * 4 + 3] = TexturedVertex {
-                    pos: [bb.min.x as f32, bb.min.y as f32, 0., 1.],
+                    pos: [bb.min.x as f32 + position.x, bb.min.y as f32 + position.y, 0., 1.],
                     tex_coord: [rect.min.x, rect.min.y],
                 };
             } else {

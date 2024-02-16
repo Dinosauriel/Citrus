@@ -1,8 +1,8 @@
 use crate::graphics::texture::Texture;
 use std::{char, collections::HashMap, fs};
-use rusttype::{point, Scale, Rect};
+use rusttype::{point, PositionedGlyph, Rect, Scale};
 
-pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789.,";
+pub const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789.,-+:;!?";
 
 pub struct Font {
     pub font_size: usize,
@@ -40,7 +40,9 @@ impl Font {
         //             __/ |
         //            |___/     _______ descent line
 
-        let glyphs: Vec<_> = font.layout(ALPHABET, scale, point(0.0, v_metrics.ascent)).collect();
+        let glyphs: Vec<PositionedGlyph<'_>> = font.layout(ALPHABET, scale, point(0.0, v_metrics.ascent)).collect();
+        // todo: support overlapping fonts?
+        // let g: Vec<_> = font.glyphs_for(ALPHABET.chars()).collect();
 
         let positions: HashMap<char, Rect<i32>> = ALPHABET.chars().zip(&glyphs).map(|(c, g)| (c, g.pixel_bounding_box().unwrap())).collect();
 
