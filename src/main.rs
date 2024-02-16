@@ -2,6 +2,8 @@ use std::default::Default;
 use std::io::Cursor;
 use std::mem;
 use std::time;
+use citrus::graphics::geometry::XDir;
+use citrus::graphics::geometry::YDir;
 use glam::Mat4;
 use ash::vk;
 use citrus::config;
@@ -471,7 +473,7 @@ fn main() {
             let projection_matrices = get_proj_matrices(&cam);
             matrix_buffer.fill(&[projection_matrices]);
             
-            dummy_text.update(&format!("{:.2} {:.2} {:.2}", cam.ray.origin.x, cam.ray.origin.y, cam.ray.origin.z), &deja_vu, &Vec2::new(-860., 440.));
+            dummy_text.update(&format!("{:.2} {:.2} {:.2}", cam.ray.origin.x, cam.ray.origin.y, cam.ray.origin.z), &deja_vu, &Vec2::new(860., 440.), (XDir::XPos, YDir::YPos));
 
             let (present_index, _) = base
                 .swapchain_loader

@@ -1,5 +1,17 @@
 use glam::Vec2;
 
+pub enum XDir {
+    XPos,
+    XNeg,
+}
+
+pub enum YDir {
+    YPos,
+    YNeg,
+}
+
+pub type Corner = (XDir, YDir);
+
 #[derive(Debug)]
 pub struct Rect2D {
     pub pos: Vec2,

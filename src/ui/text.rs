@@ -2,6 +2,9 @@ use std::vec;
 use glam::Vec2;
 use rusttype::point;
 use crate::graphics::buffer::Buffer;
+use crate::graphics::geometry::XDir;
+use crate::graphics::geometry::YDir;
+use crate::graphics::geometry::Corner;
 use crate::ui::font::Font;
 use crate::graphics::object::GraphicsObject;
 use crate::graphics::vertex::TexturedVertex;
@@ -41,7 +44,7 @@ impl<'a> Text<'a> {
         }
     }
 
-    pub unsafe fn update(&mut self, content: &str, font: &Font, position: &Vec2) {
+    pub unsafe fn update(&mut self, content: &str, font: &Font, position: &Vec2, anchor: Corner) {
         if content.len() > self.capacity {
             println!("content is too long for capacity {}", self.capacity);
             return;
@@ -51,6 +54,16 @@ impl<'a> Text<'a> {
 
         let glyphs: Vec<_> = font.rt_font.layout(content, font.scale, point(0., font.ascent)).collect();
 
+        let width = glyphs.last().unwrap().position().x + glyphs.last().unwrap().unpositioned().h_metrics().advance_width;
+        let x_offset = match anchor {
+            (XDir::XPos, _) => -width,
+            (XDir::XNeg, _) => 0.,
+        };
+        let y_offset = match anchor {
+            (_, YDir::YPos) => -(font.font_size as f32),
+            (_, YDir::YNeg) => 0.,
+        };
+
         // create four textured vertices for each glyph
         for (i, glyph) in glyphs.iter().enumerate() {
             let rect = font.character_rect(&content.chars().nth(i).unwrap());
@@ -59,22 +72,22 @@ impl<'a> Text<'a> {
             if let Some(bb) = glyph.pixel_bounding_box() {
                 // bottom left
                 self.vertices[i * 4] = TexturedVertex {
-                    pos: [bb.min.x as f32 + position.x, bb.max.y as f32 + position.y, 0., 1.],
+                    pos: [bb.min.x as f32 + position.x + x_offset, bb.max.y as f32 + position.y + y_offset, 0., 1.],
                     tex_coord: [rect.min.x, rect.max.y],
                 };
                 // bottom right
                 self.vertices[i * 4 + 1] = TexturedVertex {
-                    pos: [bb.max.x as f32 + position.x, bb.max.y as f32 + position.y, 0., 1.],
+                    pos: [bb.max.x as f32 + position.x + x_offset, bb.max.y as f32 + position.y + y_offset, 0., 1.],
                     tex_coord: [rect.max.x, rect.max.y],
                 };
                 // top right
                 self.vertices[i * 4 + 2] = TexturedVertex {
-                    pos: [bb.max.x as f32 + position.x, bb.min.y as f32 + position.y, 0., 1.],
+                    pos: [bb.max.x as f32 + position.x + x_offset, bb.min.y as f32 + position.y + y_offset, 0., 1.],
                     tex_coord: [rect.max.x, rect.min.y],
                 };
                 // top left
                 self.vertices[i * 4 + 3] = TexturedVertex {
-                    pos: [bb.min.x as f32 + position.x, bb.min.y as f32 + position.y, 0., 1.],
+                    pos: [bb.min.x as f32 + position.x + x_offset, bb.min.y as f32 + position.y + y_offset, 0., 1.],
                     tex_coord: [rect.min.x, rect.min.y],
                 };
             } else {
