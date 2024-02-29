@@ -449,6 +449,8 @@ fn main() {
         const SECONDS_PER_TICK: f64 = (1 as f64) / (config::TICK_RATE as f64);
         println!("target seconds per tick: {:?}", time::Duration::from_secs_f64(SECONDS_PER_TICK));
 
+        let channel = ui::io::command_line::stdin_channel();
+
         while !base.window.should_close() {
 
             if last_second.elapsed() >= time::Duration::from_secs(1) {
@@ -569,6 +571,11 @@ fn main() {
                 //         vertex_buffer.fill(object.vertices());
                 //     }
                 // }
+
+                let cmds = ui::io::command_line::commands(&channel);
+                if cmds.len() > 0 {
+                    println!("{:?}", cmds);
+                }
             }
 
             // println!("{:?}", cam.position);

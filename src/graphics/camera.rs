@@ -12,7 +12,7 @@ pub struct Camera {
     pub pitch: f32,
     pub field_of_view: f32,
 
-    prev_input_state_opt: Option<controls::InputState>,
+    prev_input_state: Option<controls::InputState>,
 }
 
 impl Camera {
@@ -54,7 +54,7 @@ impl Camera {
         if input_state.space {
             self.ray.origin += speed * UP;
         }
-        if let Some(prev_input_state) = self.prev_input_state_opt {
+        if let Some(prev_input_state) = self.prev_input_state {
             if prev_input_state.cursor_did_move {
                 let delta_x = prev_input_state.cursor_x - input_state.cursor_x;
                 let delta_y = prev_input_state.cursor_y - input_state.cursor_y;
@@ -68,7 +68,7 @@ impl Camera {
             }
         }
 
-        self.prev_input_state_opt = Some(*input_state);
+        self.prev_input_state = Some(*input_state);
     }
 }
 
@@ -81,7 +81,7 @@ impl Default for Camera {
             pitch: 0.0,
             field_of_view: -consts::PI / 4.,
 
-            prev_input_state_opt: None,
+            prev_input_state: None,
         }
     }
 }
