@@ -38,7 +38,7 @@ impl<'l> Buffer<'l> {
 
         device.bind_buffer_memory(buffer, memory, 0).unwrap();
 
-        return Buffer {
+        Buffer {
             device,
             vk_buffer: buffer,
             memory,

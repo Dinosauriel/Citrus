@@ -19,7 +19,7 @@ impl Iterator for Size3DIterator {
 
         self.i += 1;
 
-        return Some((x, y, z));
+        Some((x, y, z))
     }
 }
 
@@ -41,19 +41,19 @@ impl IntoIterator for Size3D {
 
 impl Size3D {
     pub fn volume(&self) -> usize {
-        return self.x * self.y * self.z;
+        self.x * self.y * self.z
     }
 
     pub fn num_vertices(&self) -> usize {
-        return (self.x + 1) * (self.y + 1) * (self.z + 1);
+        (self.x + 1) * (self.y + 1) * (self.z + 1)
     }
 
     pub fn coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
-        return self.y * self.z * x + self.z * y + z;
+        self.y * self.z * x + self.z * y + z
     }
 
     pub fn vertex_coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
-        return (self.y + 1) * (self.z + 1) * x + (self.z + 1) * y + z;
+        (self.y + 1) * (self.z + 1) * x + (self.z + 1) * y + z
     }
 
     pub fn contains(&self, c: ICoords) -> bool {

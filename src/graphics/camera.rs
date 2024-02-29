@@ -31,9 +31,9 @@ impl Camera {
         // println!("direction: {}, pitch: {}, yaw: {}", self.direction, self.pitch, self.yaw);
         let speed;
         if input_state.l_shift {
-            speed = 0.2;
+            speed = 0.8;
         } else {
-            speed = 0.1;
+            speed = 0.4;
         }
 
         if input_state.w {

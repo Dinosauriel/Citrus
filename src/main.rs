@@ -2,13 +2,12 @@ use std::default::Default;
 use std::io::Cursor;
 use std::mem;
 use std::time;
-use citrus::graphics::geometry::XDir;
-use citrus::graphics::geometry::YDir;
 use glam::Mat4;
+use glam::Vec2;
 use ash::vk;
 use citrus::config;
 use citrus::ui;
-use citrus::controls::InputState;
+use citrus::controls::*;
 use citrus::world::*;
 use citrus::world::size::*;
 use citrus::world::object::*;
@@ -19,13 +18,13 @@ use citrus::graphics::vertex::*;
 use citrus::graphics::buffer::*;
 use citrus::graphics::camera::*;
 use citrus::graphics::state::*;
-use citrus::graphics::texture::Texture;
-use glam::Vec2;
+use citrus::graphics::texture::*;
+use citrus::graphics::geometry::*;
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
 #[allow(dead_code)]
-struct UniformBufferObject {
+struct WorldUBO {
     model: Mat4,
     view: Mat4,
     proj: Mat4,
@@ -72,7 +71,7 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
     };
 
     let descriptor_set_layout = device.create_descriptor_set_layout(&layout_info, None).unwrap();
-    return descriptor_set_layout;
+    descriptor_set_layout
 }
 
 unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
@@ -98,7 +97,7 @@ unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {
     };
 
     let descriptor_pool = device.create_descriptor_pool(&pool_info, None).unwrap();
-    return descriptor_pool;
+    descriptor_pool
 }
 
 // allocate a new descriptor set for a texture sampler and a uniform buffer object
@@ -116,7 +115,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
     let buffer_info = vk::DescriptorBufferInfo {
         buffer: uni_buffer,
         offset: 0,
-        range: mem::size_of::<UniformBufferObject>() as u64,
+        range: mem::size_of::<WorldUBO>() as u64,
         ..Default::default()
     };
 
@@ -165,8 +164,7 @@ unsafe fn create_descriptor_sets(device: &ash::Device, pool: vk::DescriptorPool,
     };
 
     device.update_descriptor_sets(&[descriptor_write, hud_descriptor_write, sampler_descriptor_write], &[]);
-
-    return descriptor_sets;
+    descriptor_sets
 }
 
 fn create_render_pass(base: &GraphicState) -> vk::RenderPass {
@@ -221,14 +219,11 @@ fn create_render_pass(base: &GraphicState) -> vk::RenderPass {
     }
 }
 
-fn get_proj_matrices(cam: &Camera) -> UniformBufferObject {
-    let view = Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, UP);
-    let proj = Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 1000.);
-
-    UniformBufferObject {
+fn get_world_ubo(cam: &Camera) -> WorldUBO {
+    WorldUBO {
         model: Mat4::IDENTITY,
-        view,
-        proj
+        view: Mat4::look_at_rh(cam.ray.origin, cam.ray.origin + cam.ray.direction, UP),
+        proj: Mat4::perspective_rh(cam.field_of_view, 1920. / 1080., 0.1, 1000.),
     }
 }
 
@@ -297,7 +292,7 @@ fn main() {
         let matrix_buffer = Buffer::new(
             &base.device,
             &base.device_memory_properties,
-            std::mem::size_of::<UniformBufferObject>() as u64,
+            std::mem::size_of::<WorldUBO>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
@@ -398,8 +393,7 @@ fn main() {
             .logic_op(vk::LogicOp::CLEAR)
             .attachments(&color_blend_attachment_states);
 
-        let dynamic_state = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-        let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
+        let dynamic_state_info = vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
 
         let colored_attrs = ColoredVertex::attribute_desctiptions();
         let colored_bindings = ColoredVertex::binding_description();
@@ -470,9 +464,8 @@ fn main() {
                 println!();
             }
             
-            let projection_matrices = get_proj_matrices(&cam);
-            matrix_buffer.fill(&[projection_matrices]);
-            
+            matrix_buffer.fill(&[get_world_ubo(&cam)]);
+
             dummy_text.update(&format!("{:.2} {:.2} {:.2}", cam.ray.origin.x, cam.ray.origin.y, cam.ray.origin.z), &deja_vu, &Vec2::new(860., 440.), (XDir::XPos, YDir::YPos));
 
             let (present_index, _) = base
