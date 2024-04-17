@@ -13,6 +13,7 @@ use block::*;
 use glam::Vec3;
 use std::time;
 use std::ops::Add;
+use std::collections::HashMap;
 
 // the indices of the triangles constituting the block face facing in negative x direction
 const INDICES_NEG_X: [usize; 6] = [
@@ -184,7 +185,7 @@ impl ICoords {
 pub struct World<'a> {
     pub objects: Vec<BlockObject<'a>>,
     noise: Perlin,
-    pub structure: L4Segment,
+    pub terrain: L4Segment,
 }
 
 impl<'a> World<'a> {
@@ -192,7 +193,7 @@ impl<'a> World<'a> {
         let mut w = World {
             objects: Vec::new(),
             noise: Perlin::new(12),
-            structure: L4Segment::default()
+            terrain: L4Segment::default()
         };
 
         w.populate(device, device_memory_properties);
@@ -210,7 +211,7 @@ impl<'a> World<'a> {
         }
 
         for (l3x, l3y, l3z) in L4_SIZE {
-            if let Some(l3) = &self.structure.sub_segments[L4_SIZE.coordinates_1_d(l3x, l3y, l3z)] {
+            if let Some(l3) = &self.terrain.sub_segments[L4_SIZE.coordinates_1_d(l3x, l3y, l3z)] {
 
                 for (l2x, l2y, l2z) in L3_SIZE {
                     if let Some(l2) = &l3.sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z)] {
@@ -241,7 +242,7 @@ impl<'a> World<'a> {
         let l2coords = L2_SIZE.coordinates_1_d(l2x as usize, l2y as usize, l2z as usize);
         let l1coords = L1_SIZE.coordinates_1_d(l1x as usize, l1y as usize, l1z as usize);
 
-        if let Some(l3) = &self.structure.sub_segments[l4coords] {
+        if let Some(l3) = &self.terrain.sub_segments[l4coords] {
             if let Some(l2) = &l3.sub_segments[l3coords] {
                 if let Some(l1) = &l2.sub_segments[l2coords] {
                     return l1.blocks[l1coords];
@@ -266,7 +267,7 @@ impl<'a> World<'a> {
         let l2coords = L2_SIZE.coordinates_1_d(l2x as usize, l2y as usize, l2z as usize);
         let l1coords = L1_SIZE.coordinates_1_d(l1x as usize, l1y as usize, l1z as usize);
 
-        let l3 = self.structure.sub_segments[l4coords].get_or_insert_with(L3Segment::default);
+        let l3 = self.terrain.sub_segments[l4coords].get_or_insert_with(L3Segment::default);
         let l2 = l3.sub_segments[l3coords].get_or_insert_with(L2Segment::default);
         let l1 = l2.sub_segments[l2coords].get_or_insert_with(L1Segment::default);
         l1.blocks[l1coords] = block;

@@ -26,7 +26,6 @@ pub fn stdin_channel() -> Receiver<String> {
             // blocking readline call
             io::stdin().read_line(&mut buffer).unwrap();
             tx.send(buffer).unwrap();
-            panic!("thread crashed!!");
         });
     rx
 }

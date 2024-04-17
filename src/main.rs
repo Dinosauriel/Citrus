@@ -240,40 +240,40 @@ fn get_hud_ubo() -> HudUBO {
 
 fn main() {
     unsafe {
-        let mut base = GraphicState::new(1920, 1080);
+        let mut g_state = GraphicState::new(1920, 1080);
 
-        let renderpass = create_render_pass(&base);
+        let renderpass = create_render_pass(&g_state);
 
-        let framebuffers: Vec<vk::Framebuffer> = base.present_image_views.iter()
+        let framebuffers: Vec<vk::Framebuffer> = g_state.present_image_views.iter()
             .map(|&present_image_view| {
-                let framebuffer_attachments = [present_image_view, base.depth_image_view];
+                let framebuffer_attachments = [present_image_view, g_state.depth_image_view];
                 let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(renderpass)
                     .attachments(&framebuffer_attachments)
-                    .width(base.surface_resolution.width)
-                    .height(base.surface_resolution.height)
+                    .width(g_state.surface_resolution.width)
+                    .height(g_state.surface_resolution.height)
                     .layers(1);
 
-                base.device.create_framebuffer(&frame_buffer_create_info, None).unwrap()
+                g_state.device.create_framebuffer(&frame_buffer_create_info, None).unwrap()
             })
             .collect();
 
         let mut cam = Camera::default();
         let mut input_state = InputState::default();
 
-        let deja_vu = ui::font::Font::load(&base, "./src/assets/DejaVuSansMono.ttf", 48);
+        let deja_vu = ui::font::Font::load(&g_state, "./src/assets/DejaVuSansMono.ttf", 48);
 
-        let mut dummy_text = ui::text::Text::new(&base.device, &base.device_memory_properties, 32);
+        let mut dummy_text = ui::text::Text::new(&g_state.device, &g_state.device_memory_properties, 32);
 
-        let mut world = World::new(&base.device, &base.device_memory_properties);
+        let mut world = World::new(&g_state.device, &g_state.device_memory_properties);
 
         let mut blocks = vec![BlockType::Grass; 8];
         blocks[0] = BlockType::NoBlock;
-        let mut object1 = BlockObject::new(&base.device, &base.device_memory_properties, &Size3D {x: 2, y: 2, z: 2}, &glam::Vec3::new(10., 20., 0.), &blocks);
+        let mut object1 = BlockObject::new(&g_state.device, &g_state.device_memory_properties, &Size3D {x: 2, y: 2, z: 2}, &glam::Vec3::new(10., 20., 0.), &blocks);
         object1.is_ticking = true;
         world.objects.push(object1);
 
-        let triangle = Triangle::new(&base.device, &base.device_memory_properties,
+        let triangle = Triangle::new(&g_state.device, &g_state.device_memory_properties,
             &ColoredVertex {
                 pos: [0., 2., 0., 1.],
                 color: [1., 0., 1., 1.],
@@ -290,25 +290,25 @@ fn main() {
 
         // ++++++++++++++
         let matrix_buffer = Buffer::new(
-            &base.device,
-            &base.device_memory_properties,
+            &g_state.device,
+            &g_state.device_memory_properties,
             std::mem::size_of::<WorldUBO>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
         let hud_matrix_buffer = Buffer::new(
-            &base.device,
-            &base.device_memory_properties,
+            &g_state.device,
+            &g_state.device_memory_properties,
             std::mem::size_of::<HudUBO>() as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
         // ++++++++++++++
         hud_matrix_buffer.fill(&[get_hud_ubo()]);
 
-        let descriptor_pool = create_descriptor_pool(&base.device);
-        let descriptor_set_layout = create_descriptor_set_layout(&base.device);
+        let descriptor_pool = create_descriptor_pool(&g_state.device);
+        let descriptor_set_layout = create_descriptor_set_layout(&g_state.device);
         let descriptor_sets = create_descriptor_sets(
-            &base.device, descriptor_pool,
+            &g_state.device, descriptor_pool,
             descriptor_set_layout, matrix_buffer.vk_buffer, 
             hud_matrix_buffer.vk_buffer, &deja_vu.texture);
 
@@ -317,12 +317,12 @@ fn main() {
             p_set_layouts: &descriptor_set_layout,
             ..Default::default()
         };
-        let pipeline_layout = base.device.create_pipeline_layout(&layout_create_info, None).unwrap();
+        let pipeline_layout = g_state.device.create_pipeline_layout(&layout_create_info, None).unwrap();
 
         let mut vertex_spv_file = Cursor::new(&include_bytes!("./shaders/vert.spv")[..]);
         let mut frag_spv_file = Cursor::new(&include_bytes!("./shaders/frag.spv")[..]);
-        let vertex_shader_module = get_shader_module(&mut vertex_spv_file, &base.device);
-        let fragment_shader_module = get_shader_module(&mut frag_spv_file, &base.device);
+        let vertex_shader_module = get_shader_module(&mut vertex_spv_file, &g_state.device);
+        let fragment_shader_module = get_shader_module(&mut frag_spv_file, &g_state.device);
 
         let shader_stage_create_infos = get_shader_stage_create_infos(vertex_shader_module, fragment_shader_module);
 
@@ -333,22 +333,22 @@ fn main() {
 
         let mut hud_vertex_spv = Cursor::new(&include_bytes!("./shaders/hud_vert.spv")[..]);
         let mut hud_frag_spv = Cursor::new(&include_bytes!("./shaders/hud_frag.spv")[..]);
-        let hud_vertex_shader_module = get_shader_module(&mut hud_vertex_spv, &base.device);
-        let hud_fragment_shader_module = get_shader_module(&mut hud_frag_spv, &base.device);
+        let hud_vertex_shader_module = get_shader_module(&mut hud_vertex_spv, &g_state.device);
+        let hud_fragment_shader_module = get_shader_module(&mut hud_frag_spv, &g_state.device);
 
         let hud_shader_stage_create_infos = get_shader_stage_create_infos(hud_vertex_shader_module, hud_fragment_shader_module);
 
         let viewports = [vk::Viewport {
             x: 0.0,
             y: 0.0,
-            width: base.surface_resolution.width as f32,
-            height: base.surface_resolution.height as f32,
+            width: g_state.surface_resolution.width as f32,
+            height: g_state.surface_resolution.height as f32,
             min_depth: 0.0,
             max_depth: 1.0,
         }];
         let scissors = [vk::Rect2D {
             offset: vk::Offset2D { x: 0, y: 0 },
-            extent: base.surface_resolution,
+            extent: g_state.surface_resolution,
         }];
         let viewport_state_info = vk::PipelineViewportStateCreateInfo::builder().scissors(&scissors).viewports(&viewports);
 
@@ -433,7 +433,7 @@ fn main() {
             .layout(pipeline_layout)
             .render_pass(renderpass);
 
-        let graphics_pipelines = base.device
+        let graphics_pipelines = g_state.device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
                 &[graphic_pipeline_info.build(), hud_pipeline_info.build()],
@@ -451,7 +451,7 @@ fn main() {
 
         let channel = ui::io::command_line::stdin_channel();
 
-        while !base.window.should_close() {
+        while !g_state.window.should_close() {
 
             if last_second.elapsed() >= time::Duration::from_secs(1) {
                 println!("FPS: {}, TPS: {}", frames, ticks);
@@ -470,12 +470,12 @@ fn main() {
 
             dummy_text.update(&format!("{:.2} {:.2} {:.2}", cam.ray.origin.x, cam.ray.origin.y, cam.ray.origin.z), &deja_vu, &Vec2::new(860., 440.), (XDir::XPos, YDir::YPos));
 
-            let (present_index, _) = base
+            let (present_index, _) = g_state
                 .swapchain_loader
                 .acquire_next_image(
-                    base.swapchain,
+                    g_state.swapchain,
                     std::u64::MAX,
-                    base.present_complete_semaphore,
+                    g_state.present_complete_semaphore,
                     vk::Fence::null(),
                 )
                 .unwrap();
@@ -499,18 +499,18 @@ fn main() {
                 .framebuffer(framebuffers[present_index as usize])
                 .render_area(vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
-                    extent: base.surface_resolution,
+                    extent: g_state.surface_resolution,
                 })
                 .clear_values(&clear_values);
 
             submit_commandbuffer(
-                &base.device,
-                base.draw_command_buffer,
-                base.draw_commands_reuse_fence,
-                base.present_queue,
+                &g_state.device,
+                g_state.draw_command_buffer,
+                g_state.draw_commands_reuse_fence,
+                g_state.present_queue,
                 &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                &[base.present_complete_semaphore],
-                &[base.rendering_complete_semaphore],
+                &[g_state.present_complete_semaphore],
+                &[g_state.rendering_complete_semaphore],
                 | device: &ash::Device, draw_command_buffer: vk::CommandBuffer | {
                     device.cmd_begin_render_pass(draw_command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[0]);
@@ -539,27 +539,27 @@ fn main() {
                 },
             );
 
-            let wait_semaphores = [base.rendering_complete_semaphore];
-            let swapchains = [base.swapchain];
+            let wait_semaphores = [g_state.rendering_complete_semaphore];
+            let swapchains = [g_state.swapchain];
             let image_indices = [present_index];
             let present_info = vk::PresentInfoKHR::builder()
                 .wait_semaphores(&wait_semaphores)
                 .swapchains(&swapchains)
                 .image_indices(&image_indices);
 
-            base.swapchain_loader.queue_present(base.present_queue, &present_info).unwrap();
+            g_state.swapchain_loader.queue_present(g_state.present_queue, &present_info).unwrap();
 
             if last_tick.elapsed() >= time::Duration::from_secs_f64(SECONDS_PER_TICK) {
                 ticks += 1;
                 last_tick += time::Duration::from_secs_f64(SECONDS_PER_TICK);
-                for (_, event) in glfw::flush_messages(&base.events) {
+                for (_, event) in glfw::flush_messages(&g_state.events) {
                     // println!("{:?}", event);
                     input_state.update_from_event(&event);
                 }
                 cam.update_from_input_state(&input_state);
     
                 if input_state.escape {
-                    base.window.set_should_close(true);
+                    g_state.window.set_should_close(true);
                     println!("escape!");
                 }
 
@@ -579,42 +579,42 @@ fn main() {
             }
 
             // println!("{:?}", cam.position);
-            base.glfw.poll_events();
+            g_state.glfw.poll_events();
             frames += 1;
         }
 
-        base.device.device_wait_idle().unwrap();
+        g_state.device.device_wait_idle().unwrap();
         for pipeline in graphics_pipelines {
-            base.device.destroy_pipeline(pipeline, None);
+            g_state.device.destroy_pipeline(pipeline, None);
         }
-        base.device.destroy_descriptor_set_layout(descriptor_set_layout, None);
-        base.device.destroy_descriptor_pool(descriptor_pool, None);
+        g_state.device.destroy_descriptor_set_layout(descriptor_set_layout, None);
+        g_state.device.destroy_descriptor_pool(descriptor_pool, None);
 
-        base.device.destroy_pipeline_layout(pipeline_layout, None);
+        g_state.device.destroy_pipeline_layout(pipeline_layout, None);
 
-        base.device.destroy_shader_module(vertex_shader_module, None);
-        base.device.destroy_shader_module(fragment_shader_module, None);
-        base.device.destroy_shader_module(hud_vertex_shader_module, None);
-        base.device.destroy_shader_module(hud_fragment_shader_module, None);
+        g_state.device.destroy_shader_module(vertex_shader_module, None);
+        g_state.device.destroy_shader_module(fragment_shader_module, None);
+        g_state.device.destroy_shader_module(hud_vertex_shader_module, None);
+        g_state.device.destroy_shader_module(hud_fragment_shader_module, None);
 
-        triangle.index_buffer().free(&base.device);
-        triangle.vertex_buffer().free(&base.device);
+        triangle.index_buffer().free(&g_state.device);
+        triangle.vertex_buffer().free(&g_state.device);
 
-        deja_vu.texture.free(&base);
-        dummy_text.index_buffer().free(&base.device);
-        dummy_text.vertex_buffer().free(&base.device);
+        deja_vu.texture.free(&g_state);
+        dummy_text.index_buffer().free(&g_state.device);
+        dummy_text.vertex_buffer().free(&g_state.device);
 
         for object in &world.objects {
-            object.vertex_buffer().free(&base.device);
-            object.index_buffer().free(&base.device);
+            object.vertex_buffer().free(&g_state.device);
+            object.index_buffer().free(&g_state.device);
         }
 
-        matrix_buffer.free(&base.device);
-        hud_matrix_buffer.free(&base.device);
+        matrix_buffer.free(&g_state.device);
+        hud_matrix_buffer.free(&g_state.device);
 
         for framebuffer in framebuffers {
-            base.device.destroy_framebuffer(framebuffer, None);
+            g_state.device.destroy_framebuffer(framebuffer, None);
         }
-        base.device.destroy_render_pass(renderpass, None);
+        g_state.device.destroy_render_pass(renderpass, None);
     }
 }
