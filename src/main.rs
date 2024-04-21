@@ -13,7 +13,7 @@ use citrus::world::size::*;
 use citrus::world::object::*;
 use citrus::world::block::*;
 use citrus::graphics::shader::*;
-use citrus::graphics::object::*;
+use citrus::graphics::graphics_object::*;
 use citrus::graphics::vertex::*;
 use citrus::graphics::buffer::*;
 use citrus::graphics::camera::*;

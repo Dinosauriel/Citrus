@@ -1,0 +1,9 @@
+Bytes per colored Vertex: 24
+Vertex per Voxel: 8
+Voxel per L1SEG: 32 * 32 * 4 = 4096
+
+Bytes per L1SEG: 786K
+
+Num L1SEG: 8 * 8 * 8 = 512
+
+Bytes Total for L1SEG Vertices: 402’653’184

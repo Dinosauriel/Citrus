@@ -7,11 +7,9 @@ pub const UP: Vec3 = Vec3::Y;
 
 pub struct Camera {
     pub ray: ray::Ray,
-
     pub yaw: f32,
     pub pitch: f32,
     pub field_of_view: f32,
-
     prev_input_state: Option<controls::InputState>,
 }
 
@@ -75,12 +73,10 @@ impl Camera {
 impl Default for Camera {
     fn default() -> Camera {
         Camera {
-            ray: ray::Ray { origin: Vec3::ZERO, direction: Vec3::Z },
-    
+            ray: ray::Ray { origin: 10. * Vec3::ONE, direction: Vec3::Z },
             yaw: consts::PI / 2.,
             pitch: 0.0,
             field_of_view: -consts::PI / 4.,
-
             prev_input_state: None,
         }
     }

@@ -4,16 +4,16 @@ pub mod ray;
 pub mod size;
 pub mod block;
 
+use std::time;
+use std::ops::Add;
+use std::collections::HashMap;
 use noise::{NoiseFn, Perlin};
-use crate::graphics::object::GraphicsObject;
+use glam::Vec3;
+use crate::graphics::graphics_object::GraphicsObject;
 use object::*;
 use size::*;
 use segment::*;
 use block::*;
-use glam::Vec3;
-use std::time;
-use std::ops::Add;
-use std::collections::HashMap;
 
 // the indices of the triangles constituting the block face facing in negative x direction
 const INDICES_NEG_X: [usize; 6] = [
@@ -73,7 +73,7 @@ const BL_VERTICES: [[usize; 3]; 8] = [
     [1, 1, 1]
 ];
 
-pub enum Dimension {
+pub enum Axis {
     X,
     Y,
     Z,
@@ -155,23 +155,25 @@ impl Add for ICoords {
 }
 
 impl ICoords {
-    fn decompose(&self, along: Dimension) -> (i64, i64, i64, i64) {
+    /// for a given world coordinate, find the coordinates of the respective L4, L3, L2 and L1 segments that contain this coordinate
+    /// - along: the axis that should be decomposed
+    fn decompose(&self, along: Axis) -> (i64, i64, i64, i64) {
         match along {
-            Dimension::X => {
+            Axis::X => {
                 let l3c = (self.x / L3_SIZE_BL.x as i64) % L4_SIZE.x as i64;
                 let l2c = (self.x / L2_SIZE_BL.x as i64) % L3_SIZE.x as i64;
                 let l1c = (self.x / L1_SIZE_BL.x as i64) % L2_SIZE.x as i64;
                 let bc = self.x % L1_SIZE.x as i64;
                 return (l3c, l2c, l1c, bc);
             }
-            Dimension::Y => {
+            Axis::Y => {
                 let l3c = (self.y / L3_SIZE_BL.y as i64) % L4_SIZE.y as i64;
                 let l2c = (self.y / L2_SIZE_BL.y as i64) % L3_SIZE.y as i64;
                 let l1c = (self.y / L1_SIZE_BL.y as i64) % L2_SIZE.y as i64;
                 let bc = self.y % L1_SIZE.y as i64;
                 return (l3c, l2c, l1c, bc);
             }
-            Dimension::Z => {
+            Axis::Z => {
                 let l3c = (self.z / L3_SIZE_BL.z as i64) % L4_SIZE.z as i64;
                 let l2c = (self.z / L2_SIZE_BL.z as i64) % L3_SIZE.z as i64;
                 let l1c = (self.z / L1_SIZE_BL.z as i64) % L2_SIZE.z as i64;
@@ -185,7 +187,7 @@ impl ICoords {
 pub struct World<'a> {
     pub objects: Vec<BlockObject<'a>>,
     noise: Perlin,
-    pub terrain: L4Segment,
+    pub terrain: HashMap<(i64, i64), L4Segment>,
 }
 
 impl<'a> World<'a> {
@@ -193,11 +195,39 @@ impl<'a> World<'a> {
         let mut w = World {
             objects: Vec::new(),
             noise: Perlin::new(12),
-            terrain: L4Segment::default()
+            terrain: HashMap::new()
         };
 
+        w.terrain.insert((0, 0), L4Segment::default());
         w.populate(device, device_memory_properties);
+        w.print_stats();
         w
+    }
+
+    pub fn print_stats(&self) {
+        println!("=== WORLD STATS ===");
+        println!("Number of L4 Segments: {}", self.terrain.len());
+        for (i, l4_seg) in &self.terrain {
+            println!("L4 at {:?} has {} L3 segments", i, l4_seg.number_of_l3_segments());
+
+            for l3_seg_opt in &l4_seg.sub_segments {
+                if let Some(l3_seg) = l3_seg_opt {
+                    println!("L3 has {} L2 segments", l3_seg.number_of_l2_segments());
+
+                    for l2_seg_opt in &l3_seg.sub_segments {
+                        if let Some(l2_seg) = l2_seg_opt {
+                            println!("L2 has {} L1 segments", l2_seg.number_of_l1_segments());
+                        
+                            for l1_seg_opt in &l2_seg.sub_segments {
+                                if let Some(l1_seg) = l1_seg_opt {
+                                    println!("L1 has {} blocks", l1_seg.number_of_solid_blocks());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     unsafe fn populate(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
@@ -211,7 +241,7 @@ impl<'a> World<'a> {
         }
 
         for (l3x, l3y, l3z) in L4_SIZE {
-            if let Some(l3) = &self.terrain.sub_segments[L4_SIZE.coordinates_1_d(l3x, l3y, l3z)] {
+            if let Some(l3) = &self.terrain[&(0, 0)].sub_segments[L4_SIZE.coordinates_1_d(l3x, l3y, l3z)] {
 
                 for (l2x, l2y, l2z) in L3_SIZE {
                     if let Some(l2) = &l3.sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z)] {
@@ -230,19 +260,21 @@ impl<'a> World<'a> {
                 }
             }
         }
+
+        println!("world has {} objects.", self.objects.len());
     }
 
     pub fn get_block(self, coords: ICoords) -> BlockType {
-        let (l4x, l3x, l2x, l1x) = coords.decompose(Dimension::X);
-        let (l4y, l3y, l2y, l1y) = coords.decompose(Dimension::Y);
-        let (l4z, l3z, l2z, l1z) = coords.decompose(Dimension::Z);
+        let (l4x, l3x, l2x, l1x) = coords.decompose(Axis::X);
+        let (l4y, l3y, l2y, l1y) = coords.decompose(Axis::Y);
+        let (l4z, l3z, l2z, l1z) = coords.decompose(Axis::Z);
 
         let l4coords = L4_SIZE.coordinates_1_d(l4x as usize, l4y as usize, l4z as usize);
         let l3coords = L3_SIZE.coordinates_1_d(l3x as usize, l3y as usize, l3z as usize);
         let l2coords = L2_SIZE.coordinates_1_d(l2x as usize, l2y as usize, l2z as usize);
         let l1coords = L1_SIZE.coordinates_1_d(l1x as usize, l1y as usize, l1z as usize);
 
-        if let Some(l3) = &self.terrain.sub_segments[l4coords] {
+        if let Some(l3) = &self.terrain[&(0, 0)].sub_segments[l4coords] {
             if let Some(l2) = &l3.sub_segments[l3coords] {
                 if let Some(l1) = &l2.sub_segments[l2coords] {
                     return l1.blocks[l1coords];
@@ -258,16 +290,16 @@ impl<'a> World<'a> {
             return;
         }
 
-        let (l4x, l3x, l2x, l1x) = coords.decompose(Dimension::X);
-        let (l4y, l3y, l2y, l1y) = coords.decompose(Dimension::Y);
-        let (l4z, l3z, l2z, l1z) = coords.decompose(Dimension::Z);
+        let (l4x, l3x, l2x, l1x) = coords.decompose(Axis::X);
+        let (l4y, l3y, l2y, l1y) = coords.decompose(Axis::Y);
+        let (l4z, l3z, l2z, l1z) = coords.decompose(Axis::Z);
 
         let l4coords = L4_SIZE.coordinates_1_d(l4x as usize, l4y as usize, l4z as usize);
         let l3coords = L3_SIZE.coordinates_1_d(l3x as usize, l3y as usize, l3z as usize);
         let l2coords = L2_SIZE.coordinates_1_d(l2x as usize, l2y as usize, l2z as usize);
         let l1coords = L1_SIZE.coordinates_1_d(l1x as usize, l1y as usize, l1z as usize);
 
-        let l3 = self.terrain.sub_segments[l4coords].get_or_insert_with(L3Segment::default);
+        let l3 = self.terrain.get_mut(&(0, 0)).unwrap().sub_segments[l4coords].get_or_insert_with(L3Segment::default);
         let l2 = l3.sub_segments[l3coords].get_or_insert_with(L2Segment::default);
         let l1 = l2.sub_segments[l2coords].get_or_insert_with(L1Segment::default);
         l1.blocks[l1coords] = block;

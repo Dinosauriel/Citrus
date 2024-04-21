@@ -62,15 +62,3 @@ impl Size3D {
         && (0..self.z as i64).contains(&c.z)
     }
 }
-
-// size of sub_segment space
-pub const L1_SIZE: Size3D = Size3D { x: 32, y: 4, z: 32 };
-pub const L2_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
-pub const L3_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
-pub const L4_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
-
-// size in blocks
-pub const L1_SIZE_BL: Size3D = L1_SIZE;
-pub const L2_SIZE_BL: Size3D = Size3D { x: L1_SIZE_BL.x * L2_SIZE.x, y: L1_SIZE_BL.y * L2_SIZE.y, z: L1_SIZE_BL.z * L2_SIZE.z };
-pub const L3_SIZE_BL: Size3D = Size3D { x: L2_SIZE_BL.x * L3_SIZE.x, y: L2_SIZE_BL.y * L3_SIZE.y, z: L2_SIZE_BL.z * L3_SIZE.z };
-pub const L4_SIZE_BL: Size3D = Size3D { x: L3_SIZE_BL.x * L4_SIZE.x, y: L3_SIZE_BL.y * L4_SIZE.y, z: L3_SIZE_BL.z * L4_SIZE.z };

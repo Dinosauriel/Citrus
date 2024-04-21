@@ -9,6 +9,7 @@ pub struct Buffer<'a> {
     pub vk_buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     memory_requirements: vk::MemoryRequirements,
+    usage: vk::BufferUsageFlags,
 }
 
 impl<'l> Buffer<'l> {
@@ -25,7 +26,7 @@ impl<'l> Buffer<'l> {
         let memory_req = device.get_buffer_memory_requirements(buffer);
 
         let memory_index = find_memorytype_index(&device_memory_properties, &memory_req, properties)
-        .expect("unable to find suitable memorytype for buffer.");
+            .expect("unable to find suitable memorytype for buffer.");
 
         let allocation_info = vk::MemoryAllocateInfo {
             allocation_size: memory_req.size,
@@ -34,20 +35,22 @@ impl<'l> Buffer<'l> {
         };
 
         let memory = device.allocate_memory(&allocation_info, None).unwrap();
-        // let mapped_memory_pointer = device.map_memory(memory, 0, memory_req.size, vk::MemoryMapFlags::empty()).unwrap();
 
         device.bind_buffer_memory(buffer, memory, 0).unwrap();
+
+        // println!("new buffer of type {:?} and size {:?}", usage, size);
 
         Buffer {
             device,
             vk_buffer: buffer,
             memory,
-            memory_requirements: memory_req
+            memory_requirements: memory_req,
+            usage
         }
     }
 
-    // new index buffer with "reasonable" defaults
-    // - capacity: number of indices
+    /// new index buffer with "reasonable" defaults
+    /// - capacity: number of indices
     pub unsafe fn new_index(capacity: usize, device: &'l ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties) -> Self {
         Buffer::new(
             &device,

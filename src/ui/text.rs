@@ -6,7 +6,7 @@ use crate::graphics::geometry::XDir;
 use crate::graphics::geometry::YDir;
 use crate::graphics::geometry::Corner;
 use crate::ui::font::Font;
-use crate::graphics::object::GraphicsObject;
+use crate::graphics::graphics_object::GraphicsObject;
 use crate::graphics::vertex::TexturedVertex;
 
 pub struct Text<'a> {

@@ -1,5 +1,6 @@
 use crate::graphics::buffer::Buffer;
 use crate::graphics::vertex::ColoredVertex;
+use crate::graphics::state::GraphicState;
 use crate::world::*;
 use crate::world::block::*;
 use rand::prelude::*;
@@ -18,9 +19,9 @@ impl<'a> BlockObject<'a> {
     pub unsafe fn new(device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties,
             size: &Size3D, position: &Vec3, blocks: &Vec<BlockType>) -> Self {
 
-        let block_list = Self::block_list(&blocks, &size);
-        let vertices = Self::vertices_from(&block_list, &position);
-        let indices = Self::indices_from(&block_list, &size, &blocks);
+        let block_list = Self::enlist_blocks(&blocks, &size);
+        let vertices = Self::vertices_from_block_list(&block_list, &position);
+        let indices = Self::indices_from_block_list(&block_list, &size, &blocks);
 
         let vertex_buffer = Buffer::new_vertex::<ColoredVertex>(vertices.len(), device, device_memory_properties);
         vertex_buffer.fill(&vertices);
@@ -42,7 +43,7 @@ impl<'a> BlockObject<'a> {
         self.position.x = 10. + (((t % 10000) as f32) / 500.).cos();
     }
 
-    fn indices_from(block_list: &Vec<(usize, usize, usize)>, size: &Size3D, blocks: &Vec<BlockType>) -> Vec<u32> {
+    fn indices_from_block_list(block_list: &Vec<(usize, usize, usize)>, size: &Size3D, blocks: &Vec<BlockType>) -> Vec<u32> {
         let mut indices = vec![];
 
         for (i, (x, y, z)) in block_list.into_iter().enumerate() {
@@ -64,7 +65,7 @@ impl<'a> BlockObject<'a> {
         indices
     }
 
-    fn vertices_from(block_list: &Vec<(usize, usize, usize)>, position: &Vec3) -> Vec<ColoredVertex> {
+    fn vertices_from_block_list(block_list: &Vec<(usize, usize, usize)>, position: &Vec3) -> Vec<ColoredVertex> {
         let mut vertices = vec![ColoredVertex::default(); block_list.len() * 8];
         let mut rng = thread_rng();
 
@@ -88,12 +89,58 @@ impl<'a> BlockObject<'a> {
         vertices
     }
 
-    fn block_list(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<(usize, usize, usize)> {
+    // a list of coordinates of blocks that are not NoBlock
+    fn enlist_blocks(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<(usize, usize, usize)> {
         size.into_iter().filter(|(x, y, z)| blocks[size.coordinates_1_d(*x, *y, *z)] != BlockType::NoBlock).collect()
     }
 }
 
 impl<'a> GraphicsObject<'a, ColoredVertex> for BlockObject<'a> {
+    fn index_buffer(&self) -> &Buffer<'a> {
+        &self.index_buffer
+    }
+
+    fn vertex_buffer(&self) -> &Buffer<'a> {
+        &self.vertex_buffer
+    }
+
+    fn vertices(&self) -> &Vec<ColoredVertex> {
+        &self.vertices
+    }
+
+    fn indices(&self) -> &Vec<u32> {
+        &self.indices
+    }
+}
+
+pub struct TerrainObject<'a> {
+    pub vertices: Vec<ColoredVertex>,
+    pub indices: Vec<u32>,
+    vertex_buffer: Buffer<'a>,
+    index_buffer: Buffer<'a>,
+}
+
+impl<'a> TerrainObject<'a> {
+    // pub unsafe fn new(g_state: &'a GraphicState, segment: &L1Segment, position: Vec3) -> Self {
+    //     let block_list = enlist_blocks(&segment.blocks, &L1_SIZE_BL);
+    //     let vertices = vertices_from_block_list(&block_list, &position);
+    //     let indices = indices_from_block_list(&block_list, &L1_SIZE_BL, &segment.blocks);
+
+    //     let vertex_buffer = Buffer::new_vertex::<ColoredVertex>(vertices.len(), &g_state.device, &g_state.device_memory_properties);
+    //     vertex_buffer.fill(&vertices);
+    //     let index_buffer = Buffer::new_index(indices.len(), &g_state.device, &g_state.device_memory_properties);
+    //     index_buffer.fill(&indices);
+
+    //     TerrainObject {
+    //         vertices,
+    //         indices,
+    //         vertex_buffer,
+    //         index_buffer
+    //     }
+    // }
+}
+
+impl<'a> GraphicsObject<'a, ColoredVertex> for TerrainObject<'a> {
     fn index_buffer(&self) -> &Buffer<'a> {
         &self.index_buffer
     }

@@ -8,7 +8,7 @@ pub mod graphics {
     pub mod camera;
     pub mod state;
     pub mod shader;
-    pub mod object;
+    pub mod graphics_object;
     pub mod buffer;
     pub mod texture;
     pub mod vertex;
