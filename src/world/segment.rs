@@ -76,27 +76,3 @@ impl Default for L3Segment {
         }
     }
 }
-
-pub const L4_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
-pub const L4_SIZE_BL: Size3D = Size3D { x: L3_SIZE_BL.x * L4_SIZE.x, y: L3_SIZE_BL.y * L4_SIZE.y, z: L3_SIZE_BL.z * L4_SIZE.z };
-
-// 'a is a lifetime specifier
-// it defines how the lifetimes of the world and sub_segments relate
-pub struct L4Segment {
-    pub sub_segments: Vec<Option<L3Segment>>,
-}
-impl L4Segment {
-    pub fn number_of_l3_segments(&self) -> usize {
-        self.sub_segments.iter().filter(|s| s.is_some()).collect::<Vec<_>>().len()
-    }
-}
-
-impl Default for L4Segment {
-    fn default() -> Self {
-        let mut sub_segments = Vec::new();
-        sub_segments.resize(L4_SIZE.volume(), None);
-        L4Segment {
-            sub_segments,
-        }
-    }
-}
