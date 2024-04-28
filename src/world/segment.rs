@@ -22,7 +22,7 @@ impl L1Segment {
 impl Default for L1Segment {
     fn default() -> Self {
         let mut blocks = Vec::new();
-        blocks.resize(L1_SIZE.volume(), BlockType::NoBlock);
+        blocks.resize(L1_SIZE.volume() as usize, BlockType::NoBlock);
         L1Segment {
             blocks,
         }
@@ -46,7 +46,7 @@ impl L2Segment {
 impl Default for L2Segment {
     fn default() -> Self {
         let mut sub_segments = Vec::new();
-        sub_segments.resize(L2_SIZE.volume(), None);
+        sub_segments.resize(L2_SIZE.volume() as usize, None);
         L2Segment {
             sub_segments,
         }
@@ -70,7 +70,7 @@ impl L3Segment {
 impl Default for L3Segment {
     fn default() -> Self {
         let mut sub_segments = Vec::new();
-        sub_segments.resize(L3_SIZE.volume(), None);
+        sub_segments.resize(L3_SIZE.volume() as usize, None);
         L3Segment {
             sub_segments,
         }

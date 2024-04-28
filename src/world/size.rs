@@ -3,11 +3,11 @@ use crate::world::ICoords;
 
 pub struct Size3DIterator {
     size: Size3D,
-    i: usize
+    i: u64
 }
 
 impl Iterator for Size3DIterator {
-    type Item = (usize, usize, usize);
+    type Item = (u64, u64, u64);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.i >= self.size.volume() {
@@ -25,13 +25,13 @@ impl Iterator for Size3DIterator {
 
 #[derive(Clone, Copy)]
 pub struct Size3D {
-    pub x: usize,
-    pub y: usize,
-    pub z: usize
+    pub x: u64,
+    pub y: u64,
+    pub z: u64
 }
 
 impl IntoIterator for Size3D {
-    type Item = (usize, usize, usize);
+    type Item = (u64, u64, u64);
     type IntoIter = Size3DIterator;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -40,19 +40,19 @@ impl IntoIterator for Size3D {
 }
 
 impl Size3D {
-    pub fn volume(&self) -> usize {
+    pub fn volume(&self) -> u64 {
         self.x * self.y * self.z
     }
 
-    pub fn num_vertices(&self) -> usize {
+    pub fn num_vertices(&self) -> u64 {
         (self.x + 1) * (self.y + 1) * (self.z + 1)
     }
 
-    pub fn coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
+    pub fn coordinates_1_d(&self, x: u64, y: u64, z: u64) -> u64 {
         self.y * self.z * x + self.z * y + z
     }
 
-    pub fn vertex_coordinates_1_d(&self, x: usize, y: usize, z: usize) -> usize {
+    pub fn vertex_coordinates_1_d(&self, x: u64, y: u64, z: u64) -> u64 {
         (self.y + 1) * (self.z + 1) * x + (self.z + 1) * y + z
     }
 

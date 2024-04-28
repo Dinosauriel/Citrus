@@ -43,7 +43,7 @@ impl<'a> BlockObject<'a> {
         self.position.x = 10. + (((t % 10000) as f32) / 500.).cos();
     }
 
-    fn indices_from_block_list(block_list: &Vec<(usize, usize, usize)>, size: &Size3D, blocks: &Vec<BlockType>) -> Vec<u32> {
+    fn indices_from_block_list(block_list: &Vec<(u64, u64, u64)>, size: &Size3D, blocks: &Vec<BlockType>) -> Vec<u32> {
         let mut indices = vec![];
 
         for (i, (x, y, z)) in block_list.into_iter().enumerate() {
@@ -52,20 +52,20 @@ impl<'a> BlockObject<'a> {
                 // coordinates of the neighbouring block
                 let c_p = c + face.numeric();
                 if size.contains(c_p) 
-                    && blocks[size.coordinates_1_d(c_p.x as usize, c_p.y as usize, c_p.z as usize)] != BlockType::NoBlock {
+                    && blocks[size.coordinates_1_d(c_p.x as u64, c_p.y as u64, c_p.z as u64) as usize] != BlockType::NoBlock {
                         // skip these indices if the neighbouring coordinates are not empty
                         continue;
                 }
 
                 for index in face.indices() {
-                    indices.push((i * 8 + index) as u32)
+                    indices.push((i * 8 + index as usize) as u32)
                 }
             }
         }
         indices
     }
 
-    fn vertices_from_block_list(block_list: &Vec<(usize, usize, usize)>, position: &Vec3) -> Vec<ColoredVertex> {
+    fn vertices_from_block_list(block_list: &Vec<(u64, u64, u64)>, position: &Vec3) -> Vec<ColoredVertex> {
         let mut vertices = vec![ColoredVertex::default(); block_list.len() * 8];
         let mut rng = thread_rng();
 
@@ -90,8 +90,8 @@ impl<'a> BlockObject<'a> {
     }
 
     // a list of coordinates of blocks that are not NoBlock
-    fn enlist_blocks(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<(usize, usize, usize)> {
-        size.into_iter().filter(|(x, y, z)| blocks[size.coordinates_1_d(*x, *y, *z)] != BlockType::NoBlock).collect()
+    fn enlist_blocks(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<(u64, u64, u64)> {
+        size.into_iter().filter(|(x, y, z)| blocks[size.coordinates_1_d(*x, *y, *z) as usize] != BlockType::NoBlock).collect()
     }
 }
 
