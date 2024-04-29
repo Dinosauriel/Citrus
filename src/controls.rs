@@ -6,6 +6,8 @@ pub struct InputState {
     pub s: bool,
     pub d: bool,
 
+    pub m: bool,
+
     pub space: bool,
     pub l_ctrl: bool,
     pub escape: bool,
@@ -66,6 +68,12 @@ impl InputState {
             },
             glfw::WindowEvent::Key(glfw::Key::D, _, glfw::Action::Release, _) => {
                 self.d = false;
+            },
+            glfw::WindowEvent::Key(glfw::Key::M, _, glfw::Action::Press, _) => {
+                self.m = true;
+            },
+            glfw::WindowEvent::Key(glfw::Key::M, _, glfw::Action::Release, _) => {
+                self.m = false;
             },
             glfw::WindowEvent::CursorPos(x, y) => {
                 self.cursor_did_move = true;

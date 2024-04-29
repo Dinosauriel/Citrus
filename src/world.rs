@@ -140,7 +140,7 @@ impl Face {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ICoords {
     pub x: i64,
     pub y: i64,
@@ -219,16 +219,16 @@ impl ICoords {
 
 pub struct World<'a> {
     pub objects: Vec<BlockObject<'a>>,
-    noise: Perlin,
     pub terrain: HashMap<(i64, i64, i64), L3Segment>,
+    seed: u32,
 }
 
 impl<'a> World<'a> {
     pub unsafe fn new(device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) -> Self {
         let mut w = World {
             objects: Vec::new(),
-            noise: Perlin::new(12),
-            terrain: HashMap::new()
+            terrain: HashMap::new(),
+            seed: 12,
         };
 
         w.terrain.insert((0, 0, 0), L3Segment::default());
@@ -239,68 +239,92 @@ impl<'a> World<'a> {
         }
 
         w.generate_graphics_objects(device, device_memory_properties);
-        // w.print_stats();
         w
     }
 
-    pub fn print_stats(&self) {
-        println!("=== WORLD STATS ===");
-        println!("Number of L3 Segments: {}", self.terrain.len());
+    fn l3_segment(&self, coords: ICoords) -> Option<&L3Segment> {
+        self.terrain.get(&coords.l3_coords())
+    }
 
-        for (i, l3_seg) in &self.terrain {
-            println!("L3 at {:?} has {} L2 segments", i, l3_seg.number_of_l2_segments());
-
-            for l2_seg_opt in &l3_seg.sub_segments {
-                if let Some(l2_seg) = l2_seg_opt {
-                    println!("L2 has {} L1 segments", l2_seg.number_of_l1_segments());
-                
-                    for l1_seg_opt in &l2_seg.sub_segments {
-                        if let Some(l1_seg) = l1_seg_opt {
-                            println!("L1 has {} blocks", l1_seg.number_of_solid_blocks());
-                        }
-                    }
-                }
-            }
+    fn create_or_get_l3(&mut self, coords: ICoords) -> &mut L3Segment {
+        if !self.terrain.contains_key(&coords.l3_coords()) {
+            self.terrain.insert(coords.l3_coords(), L3Segment::default());
         }
+        self.terrain.get_mut(&coords.l3_coords()).unwrap()
+    }
+
+    fn l2_segment(&self, coords: ICoords) -> Option<&L2Segment> {
+        if let Some(l3_seg) = self.l3_segment(coords) {
+            let (l2x, l2y, l2z) = coords.l3_coords();
+            return l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x as u64, l2y as u64, l2z as u64) as usize].as_ref()
+        }
+
+        None
+    }
+
+    fn create_or_get_l2(&mut self, coords: ICoords) -> &mut L2Segment {
+        let l3_seg = self.create_or_get_l3(coords);
+        let (l2x, l2y, l2z) = coords.l2_coords();
+        if l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize].is_none() {
+            l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize] = Some(L2Segment::default());
+        }
+
+        l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize].as_mut().unwrap()
+    }
+
+    fn create_or_get_l1(&mut self, coords: ICoords) -> &mut L1Segment {
+        let l2_seg = self.create_or_get_l2(coords);
+        let (l1x, l1y, l1z) = coords.l1_coords();
+        if l2_seg.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize].is_none() {
+            l2_seg.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize] = Some(L1Segment::default());
+        }
+
+        l2_seg.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize].as_mut().unwrap()
     }
 
     /// * `coords` - coordinates of the 0 0 0 block in the desired l1_segment
     fn generate_l1_segment(&mut self, coords: ICoords) {
-        // let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
-        // let t = (now.as_millis() % 10000) as f64;
+        let noise = Perlin::new(self.seed);
+        let l1_seg = self.create_or_get_l1(coords);
+
+        println!("[generate_l1_segment]: {:?}", coords);
         for (d_x, d_y, d_z) in L1_SIZE_BL {
             let d_c = ICoords::new(coords.x + d_x as i64, coords.y + d_y as i64, coords.z + d_z as i64);
-            let v = self.noise.get([(d_c.x as f64) / 50., (d_c.y as f64) / 50., (d_c.z as f64) / 50.]);
+            let v = noise.get([(d_c.x as f64) / 50., (d_c.y as f64) / 50., (d_c.z as f64) / 50.]);
             if v > 0. {
-                self.set_block(d_c, BlockType::Grass);
+                l1_seg.blocks[L1_SIZE_BL.coordinates_1_d(d_x, d_y, d_z) as usize] = BlockType::Grass;
             }
         }
     }
 
     unsafe fn generate_graphics_objects(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
-        for (l2x, l2y, l2z) in L3_SIZE {
-            if let Some(l2) = &self.terrain[&(0, 0, 0)].sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize] {
-
-                for (l1x, l1y, l1z) in L2_SIZE {
-                    if let Some(l1) = &l2.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize] {
-                        let x_offset = l2x * L2_SIZE_BL.x + l1x * L1_SIZE_BL.x;
-                        let y_offset = l2y * L2_SIZE_BL.y + l1y * L1_SIZE_BL.y;
-                        let z_offset = l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
-
-                        let o = l1.object(device, device_memory_properties, Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
-                        self.objects.push(o);
+        for l3 in self.terrain.values() {
+            for (l2x, l2y, l2z) in L3_SIZE {
+                if let Some(l2) = &l3.sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize] {
+    
+                    for (l1x, l1y, l1z) in L2_SIZE {
+                        if let Some(l1) = &l2.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize] {
+                            let x_offset = l2x * L2_SIZE_BL.x + l1x * L1_SIZE_BL.x;
+                            let y_offset = l2y * L2_SIZE_BL.y + l1y * L1_SIZE_BL.y;
+                            let z_offset = l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
+    
+                            let o = l1.object(device, device_memory_properties, Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
+                            self.objects.push(o);
+                        }
                     }
                 }
             }
         }
+
     }
 
     unsafe fn populate(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
         let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
         let t = (now.as_millis() % 10000) as f64;
+        let noise = Perlin::new(self.seed);
         for x in 0 .. L2_SIZE_BL.x as i64 {
             for z in 0 .. L2_SIZE_BL.z as i64 {
-                let y = (40. * self.noise.get([t, (x as f64) / 150., (z as f64) / 150.])).floor().max(0.);
+                let y = (40. * noise.get([t, (x as f64) / 150., (z as f64) / 150.])).floor().max(0.);
                 self.set_block(ICoords {x, y: y as i64, z}, BlockType::Grass);
             }
         }

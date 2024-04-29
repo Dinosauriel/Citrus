@@ -1,7 +1,8 @@
 use crate::world::*;
 use crate::world::size::*;
 
-pub const L1_SIZE: Size3D = Size3D { x: 32, y: 32, z: 32 };
+pub const L1_SIZE_BITS: u64 = 5;
+pub const L1_SIZE: Size3D = Size3D { x: 1 << L1_SIZE_BITS, y: 1 << L1_SIZE_BITS, z: 1 << L1_SIZE_BITS };
 pub const L1_SIZE_BL: Size3D = L1_SIZE;
 
 #[derive(Clone)]
@@ -29,7 +30,8 @@ impl Default for L1Segment {
     }
 }
 
-pub const L2_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
+pub const L2_SIZE_BITS: u64 = 3;
+pub const L2_SIZE: Size3D = Size3D { x: 1 << L2_SIZE_BITS, y: 1 << L2_SIZE_BITS, z: 1 << L2_SIZE_BITS };
 pub const L2_SIZE_BL: Size3D = Size3D { x: L1_SIZE_BL.x * L2_SIZE.x, y: L1_SIZE_BL.y * L2_SIZE.y, z: L1_SIZE_BL.z * L2_SIZE.z };
 
 #[derive(Clone)]
@@ -53,7 +55,8 @@ impl Default for L2Segment {
     }
 }
 
-pub const L3_SIZE: Size3D = Size3D { x: 8, y: 8, z: 8 };
+pub const L3_SIZE_BITS: u64 = 3;
+pub const L3_SIZE: Size3D = Size3D { x: 1 << L3_SIZE_BITS, y: 1 << L3_SIZE_BITS, z: 1 << L3_SIZE_BITS };
 pub const L3_SIZE_BL: Size3D = Size3D { x: L2_SIZE_BL.x * L3_SIZE.x, y: L2_SIZE_BL.y * L3_SIZE.y, z: L2_SIZE_BL.z * L3_SIZE.z };
 
 #[derive(Clone)]

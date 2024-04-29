@@ -359,6 +359,14 @@ fn main() {
             cull_mode: vk::CullModeFlags::BACK,
             ..Default::default()
         };
+        let rasterization_line = vk::PipelineRasterizationStateCreateInfo {
+            front_face: vk::FrontFace::COUNTER_CLOCKWISE,
+            line_width: 1.0,
+            polygon_mode: vk::PolygonMode::LINE,
+            cull_mode: vk::CullModeFlags::BACK,
+            ..Default::default()
+        };
+
         let multisample_state_info = vk::PipelineMultisampleStateCreateInfo {
             rasterization_samples: vk::SampleCountFlags::TYPE_1,
             ..Default::default()
@@ -414,6 +422,19 @@ fn main() {
             .layout(pipeline_layout)
             .render_pass(renderpass);
 
+        let line_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
+            .stages(&shader_stage_create_infos)
+            .vertex_input_state(&colored_input_state)
+            .input_assembly_state(&vertex_input_assembly_state_info)
+            .viewport_state(&viewport_state_info)
+            .rasterization_state(&rasterization_line)
+            .multisample_state(&multisample_state_info)
+            .depth_stencil_state(&depth_state_info)
+            .color_blend_state(&color_blend_state)
+            .dynamic_state(&dynamic_state_info)
+            .layout(pipeline_layout)
+            .render_pass(renderpass);
+
         let textured_attrs = TexturedVertex::attribute_desctiptions();
         let textured_bindings = TexturedVertex::binding_description();
         let textured_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
@@ -436,7 +457,7 @@ fn main() {
         let graphics_pipelines = g_state.device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
-                &[graphic_pipeline_info.build(), hud_pipeline_info.build()],
+                &[graphic_pipeline_info.build(), hud_pipeline_info.build(), line_pipeline_info.build()],
                 None,
             )
             .expect("Unable to create graphics pipeline");
@@ -450,6 +471,8 @@ fn main() {
         println!("target seconds per tick: {:?}", time::Duration::from_secs_f64(SECONDS_PER_TICK));
 
         let channel = ui::io::command_line::stdin_channel();
+
+        let mut pipeline_index: usize = 0;
 
         while !g_state.window.should_close() {
 
@@ -513,7 +536,7 @@ fn main() {
                 &[g_state.rendering_complete_semaphore],
                 | device: &ash::Device, draw_command_buffer: vk::CommandBuffer | {
                     device.cmd_begin_render_pass(draw_command_buffer, &render_pass_begin_info, vk::SubpassContents::INLINE);
-                    device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[0]);
+                    device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[pipeline_index]);
 
                     device.cmd_set_viewport(draw_command_buffer, 0, &viewports);
                     device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
@@ -561,6 +584,12 @@ fn main() {
                 if input_state.escape {
                     g_state.window.set_should_close(true);
                     println!("escape!");
+                }
+
+                if input_state.m {
+                    pipeline_index = 2;
+                } else {
+                    pipeline_index = 0;
                 }
 
                 // for (object, vertex_buffer, _) in &mut object_buffers {
