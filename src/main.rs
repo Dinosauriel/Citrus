@@ -195,7 +195,7 @@ fn main() {
         let framebuffers: Vec<vk::Framebuffer> = g_state.present_image_views.iter()
             .map(|&present_image_view| {
                 let framebuffer_attachments = [present_image_view, g_state.depth_image_view];
-                let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
+                let frame_buffer_create_info = vk::FramebufferCreateInfo::default()
                     .render_pass(render_pass)
                     .attachments(&framebuffer_attachments)
                     .width(g_state.surface_resolution.width)
@@ -293,7 +293,7 @@ fn main() {
         let graphics_pipelines = g_state.device
             .create_graphics_pipelines(
                 vk::PipelineCache::null(),
-                &[graphic_pipeline_info.build(), hud_pipeline_info.build(), line_pipeline_info.build()],
+                &[graphic_pipeline_info, hud_pipeline_info, line_pipeline_info],
                 None,
             )
             .expect("Unable to create graphics pipeline");
@@ -353,7 +353,7 @@ fn main() {
                 },
             ];
 
-            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            let render_pass_begin_info = vk::RenderPassBeginInfo::default()
                 .render_pass(render_pass)
                 .framebuffer(framebuffers[present_index as usize])
                 .render_area(vk::Rect2D {
@@ -401,7 +401,7 @@ fn main() {
             let wait_semaphores = [g_state.rendering_complete_semaphore];
             let swapchains = [g_state.swapchain];
             let image_indices = [present_index];
-            let present_info = vk::PresentInfoKHR::builder()
+            let present_info = vk::PresentInfoKHR::default()
                 .wait_semaphores(&wait_semaphores)
                 .swapchains(&swapchains)
                 .image_indices(&image_indices);

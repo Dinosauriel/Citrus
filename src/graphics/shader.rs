@@ -21,12 +21,12 @@ pub unsafe fn shader_module(g_state: &GraphicState, s_type: ShaderType, s_stage:
     };
 
     let code = read_spv(&mut spv).expect("failed to read shader spv file");
-    let shader_info = vk::ShaderModuleCreateInfo::builder().code(&code);
+    let shader_info = vk::ShaderModuleCreateInfo::default().code(&code);
 
     g_state.device.create_shader_module(&shader_info, None).expect("shader module error")
 }
 
-pub unsafe fn shader_stage_create_infos(vertex_shader: vk::ShaderModule, fragment_shader: vk::ShaderModule) -> [vk::PipelineShaderStageCreateInfo; 2] {
+pub unsafe fn shader_stage_create_infos(vertex_shader: vk::ShaderModule, fragment_shader: vk::ShaderModule) -> [vk::PipelineShaderStageCreateInfo<'static>; 2] {
     let main_str = std::ffi::CStr::from_bytes_with_nul_unchecked(b"main\0");
 
     [vk::PipelineShaderStageCreateInfo {

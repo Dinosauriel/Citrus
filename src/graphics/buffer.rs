@@ -17,7 +17,7 @@ impl<'l> Buffer<'l> {
             device: &'l ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
             size: vk::DeviceSize, usage: vk::BufferUsageFlags, properties: vk::MemoryPropertyFlags) 
                 -> Self {
-        let buffer_info = vk::BufferCreateInfo::builder()
+        let buffer_info = vk::BufferCreateInfo::default()
             .size(size)
             .usage(usage)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);

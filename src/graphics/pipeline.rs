@@ -10,13 +10,13 @@ pub enum PipelineType {
 
 // holds on to all necessary information for the pipeline to live
 pub struct Pipeline<'a> {
-    rasterization_info: vk::PipelineRasterizationStateCreateInfo,
-    dynamic_state: vk::PipelineDynamicStateCreateInfoBuilder<'a>,
-    input_assembly_state: vk::PipelineInputAssemblyStateCreateInfo,
-    viewport_state: vk::PipelineViewportStateCreateInfoBuilder<'a>,
-    multisample_state: vk::PipelineMultisampleStateCreateInfo,
-    depth_stencil_state: vk::PipelineDepthStencilStateCreateInfo,
-    color_blend_state: vk::PipelineColorBlendStateCreateInfoBuilder<'a>,
+    rasterization_info: vk::PipelineRasterizationStateCreateInfo<'a>,
+    dynamic_state: vk::PipelineDynamicStateCreateInfo<'a>,
+    input_assembly_state: vk::PipelineInputAssemblyStateCreateInfo<'a>,
+    viewport_state: vk::PipelineViewportStateCreateInfo<'a>,
+    multisample_state: vk::PipelineMultisampleStateCreateInfo<'a>,
+    depth_stencil_state: vk::PipelineDepthStencilStateCreateInfo<'a>,
+    color_blend_state: vk::PipelineColorBlendStateCreateInfo<'a>,
 }
 
 impl<'a> Pipeline<'a> {
@@ -39,9 +39,9 @@ impl<'a> Pipeline<'a> {
 
     pub unsafe fn create_info(&'a self,
         shader_stages: &'a [vk::PipelineShaderStageCreateInfo; 2], vertex_input_state: &'a vk::PipelineVertexInputStateCreateInfo,
-        render_pass: vk::RenderPass, pipeline_layout: vk::PipelineLayout) -> vk::GraphicsPipelineCreateInfoBuilder<'a> {
+        render_pass: vk::RenderPass, pipeline_layout: vk::PipelineLayout) -> vk::GraphicsPipelineCreateInfo<'a> {
 
-        vk::GraphicsPipelineCreateInfo::builder()
+        vk::GraphicsPipelineCreateInfo::default()
             .stages(shader_stages)
             .vertex_input_state(&vertex_input_state)
             .input_assembly_state(&self.input_assembly_state)
@@ -92,19 +92,18 @@ pub fn render_pass(g_state: &GraphicState) -> vk::RenderPass {
         ..Default::default()
     }];
 
-    let subpass = vk::SubpassDescription::builder()
+    let subpass = vk::SubpassDescription::default()
         .color_attachments(&color_attachment_refs)
         .depth_stencil_attachment(&depth_attachment_ref)
         .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
 
-    let renderpass_create_info = vk::RenderPassCreateInfo::builder()
+    let renderpass_create_info = vk::RenderPassCreateInfo::default()
         .attachments(&renderpass_attachments)
         .subpasses(std::slice::from_ref(&subpass))
         .dependencies(&dependencies);
 
     unsafe {
-        let renderpass = g_state.device.create_render_pass(&renderpass_create_info, None).unwrap();
-        return renderpass;
+        g_state.device.create_render_pass(&renderpass_create_info, None).unwrap()
     }
 }
 
@@ -127,21 +126,21 @@ pub fn viewports(g_state: &GraphicState) -> [vk::Viewport; 1] {
 }
 
 fn viewport_state_create_info<'a>(scissors: &'a [vk::Rect2D; 1], viewports: &'a [vk::Viewport; 1]) 
-        -> vk::PipelineViewportStateCreateInfoBuilder<'a> {
-    vk::PipelineViewportStateCreateInfo::builder()
+        -> vk::PipelineViewportStateCreateInfo<'a> {
+    vk::PipelineViewportStateCreateInfo::default()
         .viewports(viewports)
         .scissors(scissors)
 }
 
 
-fn multisample_state_create_info() -> vk::PipelineMultisampleStateCreateInfo {
+fn multisample_state_create_info() -> vk::PipelineMultisampleStateCreateInfo<'static> {
     vk::PipelineMultisampleStateCreateInfo {
         rasterization_samples: vk::SampleCountFlags::TYPE_1,
         ..Default::default()
     }
 }
 
-fn depth_stencil_state_create_info() -> vk::PipelineDepthStencilStateCreateInfo {
+fn depth_stencil_state_create_info() -> vk::PipelineDepthStencilStateCreateInfo<'static> {
     let noop_stencil_state = vk::StencilOpState {
         fail_op: vk::StencilOp::KEEP,
         pass_op: vk::StencilOp::KEEP,
@@ -172,13 +171,13 @@ static COLOR_BLEND_ATTACHMENT_STATES: [vk::PipelineColorBlendAttachmentState; 1]
     color_write_mask: vk::ColorComponentFlags::RGBA,
 }];
 
-fn color_blend_state_create_info() -> vk::PipelineColorBlendStateCreateInfoBuilder<'static> {
-    vk::PipelineColorBlendStateCreateInfo::builder()
+fn color_blend_state_create_info() -> vk::PipelineColorBlendStateCreateInfo<'static> {
+    vk::PipelineColorBlendStateCreateInfo::default()
         .logic_op(vk::LogicOp::CLEAR)
         .attachments(&COLOR_BLEND_ATTACHMENT_STATES)
 }
 
-fn rasterization_info_fill() -> vk::PipelineRasterizationStateCreateInfo {
+fn rasterization_info_fill() -> vk::PipelineRasterizationStateCreateInfo<'static> {
     vk::PipelineRasterizationStateCreateInfo {
         front_face: vk::FrontFace::COUNTER_CLOCKWISE,
         line_width: 1.0,
@@ -188,7 +187,7 @@ fn rasterization_info_fill() -> vk::PipelineRasterizationStateCreateInfo {
     }
 }
 
-fn rasterization_info_line() -> vk::PipelineRasterizationStateCreateInfo {
+fn rasterization_info_line() -> vk::PipelineRasterizationStateCreateInfo<'static> {
     vk::PipelineRasterizationStateCreateInfo {
         front_face: vk::FrontFace::COUNTER_CLOCKWISE,
         line_width: 1.0,
@@ -198,19 +197,19 @@ fn rasterization_info_line() -> vk::PipelineRasterizationStateCreateInfo {
     }
 }
 
-fn dynamic_state_create_info() -> vk::PipelineDynamicStateCreateInfoBuilder<'static> {
-    vk::PipelineDynamicStateCreateInfo::builder()
+fn dynamic_state_create_info() -> vk::PipelineDynamicStateCreateInfo<'static> {
+    vk::PipelineDynamicStateCreateInfo::default()
         .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
 }
 
 pub fn vertex_input_state<'a>(bindigs: &'a [vk::VertexInputBindingDescription; 1], attrs: &'a [vk::VertexInputAttributeDescription; 2])
-        -> vk::PipelineVertexInputStateCreateInfoBuilder<'a> {
-    vk::PipelineVertexInputStateCreateInfo::builder()
+        -> vk::PipelineVertexInputStateCreateInfo<'a> {
+    vk::PipelineVertexInputStateCreateInfo::default()
         .vertex_attribute_descriptions(attrs)
         .vertex_binding_descriptions(bindigs)
 }
 
-fn input_assembly_state() -> vk::PipelineInputAssemblyStateCreateInfo {
+fn input_assembly_state() -> vk::PipelineInputAssemblyStateCreateInfo<'static> {
     vk::PipelineInputAssemblyStateCreateInfo {
         topology: vk::PrimitiveTopology::TRIANGLE_LIST,
         ..Default::default()

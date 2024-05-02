@@ -3,11 +3,7 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use ash;
 use ash::vk;
-use ash::extensions::{
-    ext::DebugUtils,
-    khr::{Surface, Swapchain},
-};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::find_memorytype_index;
 use crate::vulkan_debug_callback;
@@ -32,7 +28,7 @@ pub unsafe fn submit_commandbuffer<F: FnOnce(&ash::Device, vk::CommandBuffer)>(
 
     device.reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::RELEASE_RESOURCES,).expect("Reset command buffer failed.");
 
-    let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+    let command_buffer_begin_info = vk::CommandBufferBeginInfo::default()
         .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
     device.begin_command_buffer(command_buffer, &command_buffer_begin_info).expect("unable to begin commandbuffer");
@@ -43,16 +39,16 @@ pub unsafe fn submit_commandbuffer<F: FnOnce(&ash::Device, vk::CommandBuffer)>(
 
     let command_buffers = vec![command_buffer];
 
-    let submit_info = vk::SubmitInfo::builder()
+    let submit_info = vk::SubmitInfo::default()
         .wait_semaphores(wait_semaphores)
         .wait_dst_stage_mask(wait_mask)
         .command_buffers(&command_buffers)
         .signal_semaphores(signal_semaphores);
 
-    device.queue_submit(submit_queue, &[submit_info.build()], command_buffer_reuse_fence).expect("queue submit failed.");
+    device.queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence).expect("queue submit failed.");
 }
 
-unsafe fn create_instance(window: &glfw::Window, entry: &ash::Entry) -> ash::Instance {
+unsafe fn create_instance(window: &glfw::PWindow, entry: &ash::Entry) -> ash::Instance {
     let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
 
     let layer_names = [CStr::from_bytes_with_nul_unchecked(
@@ -60,17 +56,17 @@ unsafe fn create_instance(window: &glfw::Window, entry: &ash::Entry) -> ash::Ins
     )];
     let layer_names_raw: Vec<*const c_char> = layer_names.iter().map(|name| name.as_ptr()).collect();
 
-    let mut surface_extensions = ash_window::enumerate_required_extensions(window.raw_display_handle()).unwrap().to_vec();
-    surface_extensions.push(DebugUtils::name().as_ptr());
+    let mut surface_extensions = ash_window::enumerate_required_extensions(window.display_handle().unwrap().as_raw()).unwrap().to_vec();
+    surface_extensions.push(ash::ext::debug_utils::NAME.as_ptr());
 
-    let appinfo = vk::ApplicationInfo::builder()
+    let appinfo = vk::ApplicationInfo::default()
         .application_name(app_name)
         .application_version(0)
         .engine_name(app_name)
         .engine_version(0)
         .api_version(vk::make_api_version(0, 1, 3, 0));
 
-    let create_info = vk::InstanceCreateInfo::builder()
+    let create_info = vk::InstanceCreateInfo::default()
         .application_info(&appinfo)
         .enabled_layer_names(&layer_names_raw)
         .enabled_extension_names(&surface_extensions);
@@ -81,8 +77,8 @@ unsafe fn create_instance(window: &glfw::Window, entry: &ash::Entry) -> ash::Ins
     return instance;
 }
 
-fn create_debug_callback(entry: &ash::Entry, instance: &ash::Instance) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
-    let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+fn create_debug_callback(entry: &ash::Entry, instance: &ash::Instance) -> (ash::ext::debug_utils::Instance, vk::DebugUtilsMessengerEXT) {
+    let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::default()
     .message_severity(
         vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
             | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
@@ -95,7 +91,7 @@ fn create_debug_callback(entry: &ash::Entry, instance: &ash::Instance) -> (Debug
     )
     .pfn_user_callback(Some(vulkan_debug_callback));
 
-    let debug_utils_loader = DebugUtils::new(entry, instance);
+    let debug_utils_loader = ash::ext::debug_utils::Instance::new(entry, instance);
     unsafe {
         let debug_call_back = debug_utils_loader
             .create_debug_utils_messenger(&debug_info, None)
@@ -105,7 +101,7 @@ fn create_debug_callback(entry: &ash::Entry, instance: &ash::Instance) -> (Debug
 }
 
 unsafe fn create_device(instance: &ash::Instance, pdevice: vk::PhysicalDevice, queue_family_index: u32) -> ash::Device {
-    let device_extension_names_raw = [Swapchain::name().as_ptr()];
+    let device_extension_names_raw = [ash::khr::swapchain::NAME.as_ptr()];
 
     //the features that we request from the device
     let features = vk::PhysicalDeviceFeatures {
@@ -116,30 +112,28 @@ unsafe fn create_device(instance: &ash::Instance, pdevice: vk::PhysicalDevice, q
     };
     let priorities = [1.0];
 
-    let queue_info = vk::DeviceQueueCreateInfo::builder()
+    let queue_info = vk::DeviceQueueCreateInfo::default()
         .queue_family_index(queue_family_index)
         .queue_priorities(&priorities);
 
-    let device_create_info = vk::DeviceCreateInfo::builder()
+    let device_create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(std::slice::from_ref(&queue_info))
         .enabled_extension_names(&device_extension_names_raw)
         .enabled_features(&features);
 
-    let device: ash::Device = instance
+    instance
         .create_device(pdevice, &device_create_info, None)
-        .unwrap();
-
-    return device;
+        .unwrap()
 }
 
 unsafe fn create_command_buffers(device: &ash::Device, queue_family: u32) -> (vk::CommandPool, vk::CommandBuffer, vk::CommandBuffer) {
-    let pool_create_info = vk::CommandPoolCreateInfo::builder()
-    .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-    .queue_family_index(queue_family);
+    let pool_create_info = vk::CommandPoolCreateInfo::default()
+        .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+        .queue_family_index(queue_family);
 
     let pool = device.create_command_pool(&pool_create_info, None).unwrap();
 
-    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+    let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::default()
         .command_buffer_count(2)
         .command_pool(pool)
         .level(vk::CommandBufferLevel::PRIMARY);
@@ -154,8 +148,8 @@ unsafe fn create_command_buffers(device: &ash::Device, queue_family: u32) -> (vk
 }
 
 unsafe fn create_swapchain(instance: &ash::Instance, device: &ash::Device, pdevice: &vk::PhysicalDevice, 
-        surface: vk::SurfaceKHR, surface_capabilities: &vk::SurfaceCapabilitiesKHR, surface_loader: &Surface, surface_format: vk::SurfaceFormatKHR,
-        surface_resolution: vk::Extent2D) -> (vk::SwapchainKHR, Swapchain) {
+        surface: vk::SurfaceKHR, surface_capabilities: &vk::SurfaceCapabilitiesKHR, surface_loader: &ash::khr::surface::Instance, surface_format: vk::SurfaceFormatKHR,
+        surface_resolution: vk::Extent2D) -> (vk::SwapchainKHR, ash::khr::swapchain::Device) {
 
     let mut desired_image_count = surface_capabilities.min_image_count + 1;
     if surface_capabilities.max_image_count > 0 {
@@ -178,9 +172,9 @@ unsafe fn create_swapchain(instance: &ash::Instance, device: &ash::Device, pdevi
         .cloned()
         .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
         .unwrap_or(vk::PresentModeKHR::FIFO);
-    let swapchain_loader = Swapchain::new(&instance, &device);
+    let swapchain_loader = ash::khr::swapchain::Device::new(&instance, &device);
 
-    let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+    let swapchain_create_info = vk::SwapchainCreateInfoKHR::default()
         .surface(surface)
         .min_image_count(desired_image_count)
         .image_color_space(surface_format.color_space)
@@ -202,13 +196,13 @@ unsafe fn create_swapchain(instance: &ash::Instance, device: &ash::Device, pdevi
 }
 
 unsafe fn create_swapchain_images(device: &ash::Device, swapchain: vk::SwapchainKHR,
-            swapchain_loader: &Swapchain, surface_format: vk::SurfaceFormatKHR) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
+            swapchain_loader: &ash::khr::swapchain::Device, surface_format: vk::SurfaceFormatKHR) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
 
     let present_images = swapchain_loader.get_swapchain_images(swapchain).unwrap();
     let present_image_views: Vec<vk::ImageView> = present_images
         .iter()
         .map(|&image| {
-            let create_view_info = vk::ImageViewCreateInfo::builder()
+            let create_view_info = vk::ImageViewCreateInfo::default()
                 .view_type(vk::ImageViewType::TYPE_2D)
                 .format(surface_format.format)
                 .components(vk::ComponentMapping {
@@ -234,7 +228,7 @@ unsafe fn create_swapchain_images(device: &ash::Device, swapchain: vk::Swapchain
 
 unsafe fn create_depth_image(device: &ash::Device, device_memory_properties: &vk::PhysicalDeviceMemoryProperties, surface_resolution: vk::Extent2D)
             -> (vk::Image, vk::DeviceMemory, vk::ImageView) {
-    let depth_image_create_info = vk::ImageCreateInfo::builder()
+    let depth_image_create_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
         .format(vk::Format::D16_UNORM)
         .extent(vk::Extent3D {
@@ -258,7 +252,7 @@ unsafe fn create_depth_image(device: &ash::Device, device_memory_properties: &vk
     )
     .expect("Unable to find suitable memory index for depth image.");
 
-    let depth_image_allocate_info = vk::MemoryAllocateInfo::builder()
+    let depth_image_allocate_info = vk::MemoryAllocateInfo::default()
         .allocation_size(depth_image_memory_req.size)
         .memory_type_index(depth_image_memory_index);
 
@@ -267,13 +261,12 @@ unsafe fn create_depth_image(device: &ash::Device, device_memory_properties: &vk
     device.bind_image_memory(depth_image, depth_image_memory, 0)
         .expect("Unable to bind depth image memory");
 
-    let depth_image_view_info = vk::ImageViewCreateInfo::builder()
+    let depth_image_view_info = vk::ImageViewCreateInfo::default()
         .subresource_range(
-            vk::ImageSubresourceRange::builder()
+            vk::ImageSubresourceRange::default()
                 .aspect_mask(vk::ImageAspectFlags::DEPTH)
                 .level_count(1)
                 .layer_count(1)
-                .build(),
         )
         .image(depth_image)
         .format(depth_image_create_info.format)
@@ -288,7 +281,7 @@ unsafe fn create_depth_image(device: &ash::Device, device_memory_properties: &vk
 
 // find the first suitable physical device and return it
 unsafe fn find_physical_device(instance: &ash::Instance, pdevices: Vec<vk::PhysicalDevice>,
-            surface_loader: &Surface, surface: vk::SurfaceKHR) -> (vk::PhysicalDevice, u32) {
+            surface_loader: &ash::khr::surface::Instance, surface: vk::SurfaceKHR) -> (vk::PhysicalDevice, u32) {
     let (pdevice, queue_family_index) = pdevices.iter().map(
         | pdevice | {
             instance.get_physical_device_queue_family_properties(*pdevice)
@@ -313,15 +306,15 @@ unsafe fn find_physical_device(instance: &ash::Instance, pdevices: Vec<vk::Physi
 
 pub struct GraphicState {
     pub glfw: glfw::Glfw,
-    pub window: glfw::Window,
-    pub events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
+    pub window: glfw::PWindow,
+    pub events: glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
 
     pub entry: ash::Entry,
     pub instance: ash::Instance,
     pub device: ash::Device,
-    pub surface_loader: Surface,
-    pub swapchain_loader: Swapchain,
-    pub debug_utils_loader: DebugUtils,
+    pub surface_loader: ash::khr::surface::Instance,
+    pub swapchain_loader: ash::khr::swapchain::Device,
+    pub debug_utils_loader: ash::ext::debug_utils::Instance,
     pub debug_call_back: vk::DebugUtilsMessengerEXT,
 
     pub pdevice: vk::PhysicalDevice,
@@ -355,7 +348,7 @@ pub struct GraphicState {
 
 impl GraphicState {
     pub unsafe fn new(window_width: u32, window_height: u32) -> Self {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
         glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
 
         let (mut window, events) = glfw.create_window(window_width, window_height, "Teardown", glfw::WindowMode::Windowed)
@@ -369,8 +362,8 @@ impl GraphicState {
         let instance = create_instance(&window, &entry);
         let (debug_utils_loader, debug_call_back) = create_debug_callback(&entry, &instance);
 
-        let surface = ash_window::create_surface(&entry, &instance, window.raw_display_handle(), window.raw_window_handle(), None).unwrap();
-        let surface_loader = Surface::new(&entry, &instance);
+        let surface = ash_window::create_surface(&entry, &instance, window.display_handle().unwrap().as_raw(), window.window_handle().unwrap().as_raw(), None).unwrap();
+        let surface_loader = ash::khr::surface::Instance::new(&entry, &instance);
 
         let pdevices = instance.enumerate_physical_devices().expect("unable to list physical devices");
         let (pdevice, queue_family_index) = find_physical_device(&instance, pdevices, &surface_loader, surface);
@@ -403,7 +396,7 @@ impl GraphicState {
         let present_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
         let rendering_complete_semaphore = device.create_semaphore(&semaphore_create_info, None).unwrap();
 
-        let fence_create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+        let fence_create_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
         let draw_commands_reuse_fence = device.create_fence(&fence_create_info, None).expect("Create fence failed.");
         let setup_commands_reuse_fence = device.create_fence(&fence_create_info, None).expect("Create fence failed.");
 
@@ -416,7 +409,7 @@ impl GraphicState {
             &[],
             &[],
             |device, setup_command_buffer| {
-                let layout_transition_barriers = vk::ImageMemoryBarrier::builder()
+                let layout_transition_barriers = vk::ImageMemoryBarrier::default()
                     .image(depth_image)
                     .dst_access_mask(
                         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
@@ -425,11 +418,10 @@ impl GraphicState {
                     .new_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
                     .old_layout(vk::ImageLayout::UNDEFINED)
                     .subresource_range(
-                        vk::ImageSubresourceRange::builder()
+                        vk::ImageSubresourceRange::default()
                             .aspect_mask(vk::ImageAspectFlags::DEPTH)
                             .layer_count(1)
                             .level_count(1)
-                            .build(),
                     );
 
                 device.cmd_pipeline_barrier(
@@ -439,7 +431,7 @@ impl GraphicState {
                     vk::DependencyFlags::empty(),
                     &[],
                     &[],
-                    &[layout_transition_barriers.build()],
+                    &[layout_transition_barriers],
                 );
             },
         );
