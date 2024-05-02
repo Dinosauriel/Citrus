@@ -1,5 +1,4 @@
 use ash::vk;
-// use image;
 use crate::find_memorytype_index;
 use crate::graphics::buffer;
 use crate::graphics::state::GraphicState;
