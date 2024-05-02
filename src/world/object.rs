@@ -1,6 +1,5 @@
 use crate::graphics::buffer::Buffer;
 use crate::graphics::vertex::ColoredVertex;
-use crate::graphics::state::GraphicState;
 use crate::world::*;
 use crate::world::block::*;
 use rand::prelude::*;

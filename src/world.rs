@@ -234,7 +234,7 @@ impl<'a> World<'a> {
         w.terrain.insert((0, 0, 0), L3Segment::default());
         // w.populate(device, device_memory_properties);
 
-        for (l1x, l1y, l1z) in L2_SIZE {
+        for (l1x, l1y, l1z) in [(0, 0, 0)] {
             w.generate_l1_segment(ICoords::new((l1x * L1_SIZE_BL.x) as i64, (l1y * L1_SIZE_BL.y) as i64, (l1z * L1_SIZE_BL.z) as i64));
         }
 
