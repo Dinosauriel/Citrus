@@ -14,7 +14,7 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn load(g_state: &crate::graphics::state::GraphicState, path: &str, font_size: usize) -> Font {
+    pub fn load(g_state: &crate::graphics::graphics_state::GraphicState, path: &str, font_size: usize) -> Font {
         let data = fs::read(path).unwrap();
         let font = rusttype::Font::try_from_vec(data).unwrap();
         

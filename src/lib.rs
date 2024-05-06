@@ -6,9 +6,9 @@ use std::ffi::CStr;
 pub mod controls;
 pub mod graphics {
     pub mod camera;
-    pub mod state;
     pub mod shader;
     pub mod graphics_object;
+    pub mod graphics_state;
     pub mod pipeline;
     pub mod buffer;
     pub mod texture;

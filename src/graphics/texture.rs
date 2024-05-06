@@ -1,8 +1,8 @@
 use ash::vk;
 use crate::find_memorytype_index;
 use crate::graphics::buffer;
-use crate::graphics::state::GraphicState;
-use super::state::submit_commandbuffer;
+use crate::graphics::graphics_state::GraphicState;
+use super::graphics_state::submit_commandbuffer;
 
 pub struct Sampler {
     pub vk_sampler: vk::Sampler

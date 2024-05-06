@@ -4,10 +4,9 @@ pub mod ray;
 pub mod size;
 pub mod block;
 
-use std::time;
-use std::ops::Add;
+use std::{ops::Add, time};
 use std::collections::HashMap;
-use noise::{NoiseFn, Perlin};
+use noise::{NoiseFn, Simplex};
 use glam::Vec3;
 use crate::graphics::graphics_object::GraphicsObject;
 use object::*;
@@ -160,7 +159,7 @@ impl ICoords {
     }
 
     /// for a given world coordinate, find the coordinates of the respective L3, L2 and L1 segments that contain this coordinate
-    /// - along: the axis that should be decomposed
+    /// - `along`: the axis that should be decomposed
     fn decompose(&self, along: Axis) -> (i64, i64, i64) {
         match along {
             Axis::X => {
@@ -231,10 +230,7 @@ impl<'a> World<'a> {
             seed: 12,
         };
 
-        w.terrain.insert((0, 0, 0), L3Segment::default());
-        // w.populate(device, device_memory_properties);
-
-        for (l1x, l1y, l1z) in [(0, 0, 0)] {
+        for (l1x, l1y, l1z) in L2_SIZE {
             w.generate_l1_segment(ICoords::new((l1x * L1_SIZE_BL.x) as i64, (l1y * L1_SIZE_BL.y) as i64, (l1z * L1_SIZE_BL.z) as i64));
         }
 
@@ -284,17 +280,30 @@ impl<'a> World<'a> {
 
     /// * `coords` - coordinates of the 0 0 0 block in the desired l1_segment
     fn generate_l1_segment(&mut self, coords: ICoords) {
-        let noise = Perlin::new(self.seed);
+        let noise = Simplex::new(self.seed);
         let l1_seg = self.create_or_get_l1(coords);
 
-        println!("[generate_l1_segment]: {:?}", coords);
+        let mut dur_noise = time::Duration::ZERO;
+        let mut dur_setb = time::Duration::ZERO;
+        let start = time::Instant::now();
+
         for (d_x, d_y, d_z) in L1_SIZE_BL {
-            let d_c = ICoords::new(coords.x + d_x as i64, coords.y + d_y as i64, coords.z + d_z as i64);
-            let v = noise.get([(d_c.x as f64) / 50., (d_c.y as f64) / 50., (d_c.z as f64) / 50.]);
+            let a = time::Instant::now();
+            let v = noise.get([
+                (coords.x + d_x as i64) as f64 / 50.,
+                (coords.y + d_y as i64) as f64 / 50.,
+                (coords.z + d_z as i64) as f64 / 50.]);
+            dur_noise += a.elapsed();
+            let b = time::Instant::now();
             if v > 0. {
                 l1_seg.blocks[L1_SIZE_BL.coordinates_1_d(d_x, d_y, d_z) as usize] = BlockType::Grass;
             }
+            dur_setb += b.elapsed();
         }
+
+        println!("noise took {:?} on average", dur_noise.div_f64(L1_SIZE_BL.volume() as f64));
+        println!("setb took {:?} on average", dur_setb.div_f64(L1_SIZE_BL.volume() as f64));
+        println!("gen_l1_segment took {:?}", start.elapsed());
     }
 
     unsafe fn generate_graphics_objects(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
@@ -315,38 +324,6 @@ impl<'a> World<'a> {
                 }
             }
         }
-
-    }
-
-    unsafe fn populate(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
-        let now = time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH).expect("time went backwards");
-        let t = (now.as_millis() % 10000) as f64;
-        let noise = Perlin::new(self.seed);
-        for x in 0 .. L2_SIZE_BL.x as i64 {
-            for z in 0 .. L2_SIZE_BL.z as i64 {
-                let y = (40. * noise.get([t, (x as f64) / 150., (z as f64) / 150.])).floor().max(0.);
-                self.set_block(ICoords {x, y: y as i64, z}, BlockType::Grass);
-            }
-        }
-
-
-        for (l2x, l2y, l2z) in L3_SIZE {
-            if let Some(l2) = &self.terrain[&(0, 0, 0)].sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize] {
-
-                for (l1x, l1y, l1z) in L2_SIZE {
-                    if let Some(l1) = &l2.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize] {
-                        let x_offset = l2x * L2_SIZE_BL.x + l1x * L1_SIZE_BL.x;
-                        let y_offset = l2y * L2_SIZE_BL.y + l1y * L1_SIZE_BL.y;
-                        let z_offset = l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
-
-                        let o = l1.object(device, device_memory_properties, Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
-                        self.objects.push(o);
-                    }
-                }
-            }
-        }
-
-        println!("world has {} objects.", self.objects.len());
     }
 
     pub fn get_block(self, coords: ICoords) -> BlockType {

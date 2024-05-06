@@ -1,5 +1,5 @@
 use ash::vk::{self};
-use super::state::GraphicState;
+use super::graphics_state::GraphicState;
 
 #[derive(Clone, Copy)]
 pub enum PipelineType {

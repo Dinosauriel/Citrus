@@ -4,22 +4,28 @@ use std::time;
 use glam::Mat4;
 use glam::Vec2;
 use ash::vk;
-use citrus::config;
-use citrus::ui;
-use citrus::controls::*;
-use citrus::world::*;
-use citrus::world::size::*;
-use citrus::world::object::*;
-use citrus::world::block::*;
-use citrus::graphics::shader::*;
-use citrus::graphics::graphics_object::*;
-use citrus::graphics::vertex::*;
-use citrus::graphics::buffer::*;
-use citrus::graphics::camera::*;
-use citrus::graphics::state::*;
-use citrus::graphics::texture::*;
-use citrus::graphics::geometry::*;
-use citrus::graphics::pipeline::*;
+use citrus::{
+    config,
+    ui,
+    controls::*,
+    world::{
+        *,
+        size::*,
+        object::*,
+        block::*,
+    },
+    graphics::{
+        shader::*,
+        graphics_object::*,
+        vertex::*,
+        buffer::*,
+        camera::*,
+        graphics_state::*,
+        texture::*,
+        geometry::*,
+        pipeline::*,
+    }
+};
 
 #[repr(C)]
 #[derive(Clone, Debug, Copy)]
@@ -70,8 +76,7 @@ unsafe fn create_descriptor_set_layout(device: &ash::Device) -> ash::vk::Descrip
         ..Default::default()
     };
 
-    let descriptor_set_layout = device.create_descriptor_set_layout(&layout_info, None).unwrap();
-    descriptor_set_layout
+    device.create_descriptor_set_layout(&layout_info, None).unwrap()
 }
 
 unsafe fn create_descriptor_pool(device: &ash::Device) -> vk::DescriptorPool {

@@ -1,6 +1,6 @@
 use ash::vk;
 use ash::util::*;
-use super::state::GraphicState;
+use super::graphics_state::GraphicState;
 
 pub enum ShaderType {
     World,
