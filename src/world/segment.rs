@@ -11,10 +11,6 @@ pub struct L1Segment {
 }
 
 impl L1Segment {
-    pub unsafe fn object<'a>(&self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties, pos: Vec3) -> BlockObject<'a> {
-        BlockObject::new(device, device_memory_properties, &L1_SIZE, &pos, &self.blocks.to_vec())
-    }
-
     pub fn number_of_solid_blocks(&self) -> usize {
         self.blocks.iter().filter(|&t| t != &BlockType::NoBlock).collect::<Vec<_>>().len()
     }

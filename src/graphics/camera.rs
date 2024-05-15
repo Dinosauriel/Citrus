@@ -73,7 +73,7 @@ impl Camera {
 impl Default for Camera {
     fn default() -> Camera {
         Camera {
-            ray: ray::Ray { origin: 10. * Vec3::ONE, direction: Vec3::Z },
+            ray: ray::Ray { origin: Vec3::new(1., 1., -4.), direction: Vec3::Z },
             yaw: consts::PI / 2.,
             pitch: 0.0,
             field_of_view: -consts::PI / 4.,

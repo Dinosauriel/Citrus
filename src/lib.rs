@@ -9,6 +9,7 @@ pub mod graphics {
     pub mod shader;
     pub mod graphics_object;
     pub mod graphics_state;
+    pub mod meshing;
     pub mod pipeline;
     pub mod buffer;
     pub mod texture;

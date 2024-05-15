@@ -1,66 +1,52 @@
-mod segment;
+pub mod segment;
 pub mod object;
 pub mod ray;
 pub mod size;
 pub mod block;
 
-use std::{ops::Add, time};
-use std::collections::HashMap;
+use std::{
+    ops::Add, time, collections::HashMap};
 use noise::{NoiseFn, Simplex};
 use glam::Vec3;
 use crate::graphics::graphics_object::GraphicsObject;
+use crate::graphics::meshing;
 use object::*;
 use size::*;
 use segment::*;
 use block::*;
 
 // the indices of the triangles constituting the block face facing in negative x direction
-const INDICES_NEG_X: [u64; 6] = [
+const INDICES_NEG_X: [u32; 6] = [
     1, 0, 2,
     1, 2, 3,
 ];
 
-const INDICES_POS_X: [u64; 6] = [
+const INDICES_POS_X: [u32; 6] = [
     4, 5, 6,
     5, 7, 6,
 ];
 
-const INDICES_NEG_Y: [u64; 6] = [
+const INDICES_NEG_Y: [u32; 6] = [
     0, 1, 4,
     1, 5, 4,
 ];
 
-const INDICES_POS_Y: [u64; 6] = [
+const INDICES_POS_Y: [u32; 6] = [
     2, 6, 3,
     3, 6, 7,
 ];
 
-const INDICES_NEG_Z: [u64; 6] = [
+const INDICES_NEG_Z: [u32; 6] = [
     0, 4, 2,
     2, 4, 6,
 ];
 
-const INDICES_POS_Z: [u64; 6] = [
+const INDICES_POS_Z: [u32; 6] = [
     1, 3, 5,
     3, 7, 5,
 ];
 
-// const BL_INDICES: [usize; 36] = [
-//     1, 0, 2,
-//     1, 2, 3,
-//     4, 5, 6,
-//     5, 7, 6,
-//     0, 1, 4,
-//     1, 5, 4,
-//     2, 6, 3,
-//     3, 6, 7,
-//     0, 4, 2,
-//     2, 4, 6,
-//     1, 3, 5,
-//     3, 7, 5,
-// ];
-
-const BL_VERTICES: [[u64; 3]; 8] = [
+pub const BL_VERTICES: [[u64; 3]; 8] = [
     [0, 0, 0],
     [0, 0, 1],
     [0, 1, 0],
@@ -78,6 +64,7 @@ pub enum Axis {
     Z,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Face {
     XPos,
     XNeg,
@@ -115,7 +102,7 @@ impl Face {
         }
     }
 
-    pub fn indices(&self) -> [u64; 6] {
+    pub fn indices(&self) -> [u32; 6] {
         match self {
             Face::XPos => {
                 INDICES_POS_X
@@ -217,7 +204,7 @@ impl ICoords {
 }
 
 pub struct World<'a> {
-    pub objects: Vec<BlockObject<'a>>,
+    pub objects: Vec<RawObject<'a>>,
     pub terrain: HashMap<(i64, i64, i64), L3Segment>,
     seed: u32,
 }
@@ -230,7 +217,8 @@ impl<'a> World<'a> {
             seed: 12,
         };
 
-        for (l1x, l1y, l1z) in L2_SIZE {
+        // for (l1x, l1y, l1z) in L2_SIZE {
+        for (l1x, l1y, l1z) in [(0, 0, 0)] {
             w.generate_l1_segment(ICoords::new((l1x * L1_SIZE_BL.x) as i64, (l1y * L1_SIZE_BL.y) as i64, (l1z * L1_SIZE_BL.z) as i64));
         }
 
@@ -252,7 +240,7 @@ impl<'a> World<'a> {
     fn l2_segment(&self, coords: ICoords) -> Option<&L2Segment> {
         if let Some(l3_seg) = self.l3_segment(coords) {
             let (l2x, l2y, l2z) = coords.l3_coords();
-            return l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x as u64, l2y as u64, l2z as u64) as usize].as_ref()
+            return l3_seg.sub_segments[L2_SIZE.c1d(l2x as u64, l2y as u64, l2z as u64) as usize].as_ref()
         }
 
         None
@@ -261,21 +249,21 @@ impl<'a> World<'a> {
     fn create_or_get_l2(&mut self, coords: ICoords) -> &mut L2Segment {
         let l3_seg = self.create_or_get_l3(coords);
         let (l2x, l2y, l2z) = coords.l2_coords();
-        if l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize].is_none() {
-            l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize] = Some(L2Segment::default());
+        if l3_seg.sub_segments[L2_SIZE.c1d(l2x, l2y, l2z) as usize].is_none() {
+            l3_seg.sub_segments[L2_SIZE.c1d(l2x, l2y, l2z) as usize] = Some(L2Segment::default());
         }
 
-        l3_seg.sub_segments[L2_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize].as_mut().unwrap()
+        l3_seg.sub_segments[L2_SIZE.c1d(l2x, l2y, l2z) as usize].as_mut().unwrap()
     }
 
     fn create_or_get_l1(&mut self, coords: ICoords) -> &mut L1Segment {
         let l2_seg = self.create_or_get_l2(coords);
         let (l1x, l1y, l1z) = coords.l1_coords();
-        if l2_seg.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize].is_none() {
-            l2_seg.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize] = Some(L1Segment::default());
+        if l2_seg.sub_segments[L2_SIZE.c1d(l1x, l1y, l1z) as usize].is_none() {
+            l2_seg.sub_segments[L2_SIZE.c1d(l1x, l1y, l1z) as usize] = Some(L1Segment::default());
         }
 
-        l2_seg.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize].as_mut().unwrap()
+        l2_seg.sub_segments[L2_SIZE.c1d(l1x, l1y, l1z) as usize].as_mut().unwrap()
     }
 
     /// * `coords` - coordinates of the 0 0 0 block in the desired l1_segment
@@ -296,7 +284,7 @@ impl<'a> World<'a> {
             dur_noise += a.elapsed();
             let b = time::Instant::now();
             if v > 0. {
-                l1_seg.blocks[L1_SIZE_BL.coordinates_1_d(d_x, d_y, d_z) as usize] = BlockType::Grass;
+                l1_seg.blocks[L1_SIZE_BL.c1d(d_x, d_y, d_z) as usize] = BlockType::Grass;
             }
             dur_setb += b.elapsed();
         }
@@ -309,15 +297,20 @@ impl<'a> World<'a> {
     unsafe fn generate_graphics_objects(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
         for l3 in self.terrain.values() {
             for (l2x, l2y, l2z) in L3_SIZE {
-                if let Some(l2) = &l3.sub_segments[L3_SIZE.coordinates_1_d(l2x, l2y, l2z) as usize] {
+                if let Some(l2) = &l3.sub_segments[L3_SIZE.c1d(l2x, l2y, l2z) as usize] {
     
                     for (l1x, l1y, l1z) in L2_SIZE {
-                        if let Some(l1) = &l2.sub_segments[L2_SIZE.coordinates_1_d(l1x, l1y, l1z) as usize] {
+                        if let Some(l1) = &l2.sub_segments[L2_SIZE.c1d(l1x, l1y, l1z) as usize] {
                             let x_offset = l2x * L2_SIZE_BL.x + l1x * L1_SIZE_BL.x;
                             let y_offset = l2y * L2_SIZE_BL.y + l1y * L1_SIZE_BL.y;
                             let z_offset = l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
     
-                            let o = l1.object(device, device_memory_properties, Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
+                            let start = time::Instant::now();
+                            let (vertices, indices) = meshing::mesh_l1_segment(l1, &[None, None, None, None, None, None], 
+                                Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
+                            println!("mesh_l1_segment took {:?}", start.elapsed());
+
+                            let o = RawObject::new(device, device_memory_properties, &vertices, &indices);
                             self.objects.push(o);
                         }
                     }
@@ -331,9 +324,9 @@ impl<'a> World<'a> {
         let (l3y, l2y, l1y) = coords.decompose(Axis::Y);
         let (l3z, l2z, l1z) = coords.decompose(Axis::Z);
 
-        let l3coords = L3_SIZE.coordinates_1_d(l3x as u64, l3y as u64, l3z as u64) as usize;
-        let l2coords = L2_SIZE.coordinates_1_d(l2x as u64, l2y as u64, l2z as u64) as usize;
-        let l1coords = L1_SIZE.coordinates_1_d(l1x as u64, l1y as u64, l1z as u64) as usize;
+        let l3coords = L3_SIZE.c1d(l3x as u64, l3y as u64, l3z as u64) as usize;
+        let l2coords = L2_SIZE.c1d(l2x as u64, l2y as u64, l2z as u64) as usize;
+        let l1coords = L1_SIZE.c1d(l1x as u64, l1y as u64, l1z as u64) as usize;
 
         if let Some(l2) = &self.terrain[&(0, 0, 0)].sub_segments[l3coords] {
             if let Some(l1) = &l2.sub_segments[l2coords] {
@@ -353,9 +346,9 @@ impl<'a> World<'a> {
         let (l3y, l2y, l1y) = coords.decompose(Axis::Y);
         let (l3z, l2z, l1z) = coords.decompose(Axis::Z);
 
-        let l3coords = L3_SIZE.coordinates_1_d(l3x as u64, l3y as u64, l3z as u64) as usize;
-        let l2coords = L2_SIZE.coordinates_1_d(l2x as u64, l2y as u64, l2z as u64) as usize;
-        let l1coords = L1_SIZE.coordinates_1_d(l1x as u64, l1y as u64, l1z as u64) as usize;
+        let l3coords = L3_SIZE.c1d(l3x as u64, l3y as u64, l3z as u64) as usize;
+        let l2coords = L2_SIZE.c1d(l2x as u64, l2y as u64, l2z as u64) as usize;
+        let l1coords = L1_SIZE.c1d(l1x as u64, l1y as u64, l1z as u64) as usize;
 
         let l2 = self.terrain.get_mut(&(0, 0, 0)).unwrap().sub_segments[l3coords].get_or_insert_with(L2Segment::default);
         let l1 = l2.sub_segments[l2coords].get_or_insert_with(L1Segment::default);

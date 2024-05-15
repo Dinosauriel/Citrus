@@ -218,28 +218,28 @@ fn main() {
 
         let mut dummy_text = ui::text::Text::new(&g_state.device, &g_state.device_memory_properties, 32);
 
-        let mut world = World::new(&g_state.device, &g_state.device_memory_properties);
+        let world = World::new(&g_state.device, &g_state.device_memory_properties);
 
         let mut blocks = vec![BlockType::Grass; 8];
         blocks[0] = BlockType::NoBlock;
-        let mut object1 = BlockObject::new(&g_state.device, &g_state.device_memory_properties, &Size3D {x: 2, y: 2, z: 2}, &glam::Vec3::new(10., 20., 0.), &blocks);
-        object1.is_ticking = true;
-        world.objects.push(object1);
+        // let mut object1 = BlockObject::new(&g_state.device, &g_state.device_memory_properties, &Size3D {x: 2, y: 2, z: 2}, &glam::Vec3::new(10., 20., 0.), &blocks);
+        // object1.is_ticking = true;
+        // world.objects.push(object1);
 
-        let triangle = Triangle::new(&g_state.device, &g_state.device_memory_properties,
-            &ColoredVertex {
-                pos: [0., 2., 0., 1.],
-                color: [1., 0., 1., 1.],
-            },
-            &ColoredVertex {
-                pos: [0., -2., 0., 1.],
-                color: [1., 0., 0., 1.],
-            },
-            &ColoredVertex {
-                pos: [1., 0., 0., 0.],
-                color: [1., 0., 0., 1.],
-            },
-        );
+        // let triangle = Triangle::new(&g_state.device, &g_state.device_memory_properties,
+        //     &ColoredVertex {
+        //         pos: [0., 2., 0., 1.],
+        //         color: [1., 0., 1., 1.],
+        //     },
+        //     &ColoredVertex {
+        //         pos: [0., -2., 0., 1.],
+        //         color: [1., 0., 0., 1.],
+        //     },
+        //     &ColoredVertex {
+        //         pos: [1., 0., 0., 0.],
+        //         color: [1., 0., 0., 1.],
+        //     },
+        // );
 
         // ++++++++++++++
         let matrix_buffer = Buffer::new(
@@ -383,14 +383,14 @@ fn main() {
                     device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
                     device.cmd_bind_descriptor_sets(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline_layout, 0, &descriptor_sets, &[]);
                     
-                    device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle.vertex_buffer().vk_buffer], &[0]);
-                    device.cmd_bind_index_buffer(draw_command_buffer, triangle.index_buffer().vk_buffer, 0, vk::IndexType::UINT32);
-                    device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
+                    // device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[triangle.vertex_buffer().vk_buffer], &[0]);
+                    // device.cmd_bind_index_buffer(draw_command_buffer, triangle.index_buffer().vk_buffer, 0, vk::IndexType::UINT32);
+                    // device.cmd_draw_indexed(draw_command_buffer, triangle.indices().len() as u32, 1, 0, 0, 1);
 
                     for object in &world.objects {
-                        device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[object.vertex_buffer().vk_buffer], &[0]);
-                        device.cmd_bind_index_buffer(draw_command_buffer, object.index_buffer().vk_buffer, 0, vk::IndexType::UINT32);
-                        device.cmd_draw_indexed(draw_command_buffer, object.indices().len() as u32, 1, 0, 0, 1);
+                        device.cmd_bind_vertex_buffers(draw_command_buffer, 0, &[object.vertex_buffer.vk_buffer], &[0]);
+                        device.cmd_bind_index_buffer(draw_command_buffer, object.index_buffer.vk_buffer, 0, vk::IndexType::UINT32);
+                        device.cmd_draw_indexed(draw_command_buffer, object.index_count, 1, 0, 0, 1);
                     }
 
                     device.cmd_bind_pipeline(draw_command_buffer, vk::PipelineBindPoint::GRAPHICS, graphics_pipelines[1]);
@@ -467,16 +467,16 @@ fn main() {
         g_state.device.destroy_shader_module(hud_vertex_shader_module, None);
         g_state.device.destroy_shader_module(hud_fragment_shader_module, None);
 
-        triangle.index_buffer().free(&g_state.device);
-        triangle.vertex_buffer().free(&g_state.device);
+        // triangle.index_buffer().free(&g_state.device);
+        // triangle.vertex_buffer().free(&g_state.device);
 
         deja_vu.texture.free(&g_state);
         dummy_text.index_buffer().free(&g_state.device);
         dummy_text.vertex_buffer().free(&g_state.device);
 
         for object in &world.objects {
-            object.vertex_buffer().free(&g_state.device);
-            object.index_buffer().free(&g_state.device);
+            object.vertex_buffer.free(&g_state.device);
+            object.index_buffer.free(&g_state.device);
         }
 
         matrix_buffer.free(&g_state.device);
