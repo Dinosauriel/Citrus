@@ -13,13 +13,8 @@ impl Iterator for Size3DIterator {
         if self.i >= self.size.volume() {
             return None
         }
-        let z = self.i % self.size.z;
-        let y = (self.i / self.size.z) % self.size.y;
-        let x = (self.i / (self.size.z * self.size.y)) % self.size.x;
-
         self.i += 1;
-
-        Some((x, y, z))
+        Some(self.size.c3d(self.i - 1))
     }
 }
 
@@ -62,6 +57,14 @@ impl Size3D {
         (0..self.x as i64).contains(&c.x) 
         && (0..self.y as i64).contains(&c.y) 
         && (0..self.z as i64).contains(&c.z)
+    }
+
+    /// maps 1d coordinate to 3d indices
+    pub fn c3d(&self, i: u64) -> (u64, u64, u64) {
+        let x = (i / (self.y * self.z)) % self.x;
+        let y = (i / self.z) % self.y;
+        let z = i % self.z;
+        (x, y, z)
     }
 }
 
