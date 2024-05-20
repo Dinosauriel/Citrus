@@ -8,6 +8,15 @@ use crate::{graphics::vertex::ColoredVertex, world::{
     segment::{L1Segment, L1_SIZE_BL}, size::Size2D, Face, BL_VERTICES
 }};
 
+
+// struct L1Bitmap(Vec<u32>);
+
+// impl L1Bitmap {
+//     pub fn get(&self, x: usize, y: usize, z: usize) -> bool {
+//         self.0[L1_SIZE_BL.c1d(0, x as u64, y as u64) as usize] & (1u32 << z) != 0
+//     }
+// }
+
 /// returns a `L1_SIZE_BL.x * L1_SIZE_BL.y` vector of u32 integers `a` which each encode what blocks are solid
 ///
 /// each bit in `a` encodes whether or not a block is solid (1) or not (0)
@@ -27,9 +36,10 @@ fn l1_solids(seg: &L1Segment) -> Vec<u32> {
 }
 
 /// - `neighbours`: [XPos, XNeg, YPos, YNeg, ZPos, ZNeg]
-pub fn mesh_l1_segment(seg: &L1Segment, neighbours: &[Option<L1Segment>; 6], position: Vec3) -> (Vec<ColoredVertex>, Vec<u32>) {
+pub fn mesh_l1_segment(seg: &L1Segment, neighbours: [Option<&L1Segment>; 6], position: Vec3) -> (Vec<ColoredVertex>, Vec<u32>) {
     let t0 = std::time::Instant::now();
     let solids = l1_solids(seg);
+    let neighbouring_solids = neighbours.map(|opt| opt.map_or(None, |neigh| Some(l1_solids(neigh))));
     let plane_size = Size2D { x: L1_SIZE_BL.x, y: L1_SIZE_BL.y };
     
     // bit x, y, z indicates whether or not voxel x, y, z is exposed in what direction
@@ -37,21 +47,36 @@ pub fn mesh_l1_segment(seg: &L1Segment, neighbours: &[Option<L1Segment>; 6], pos
     
     let t1 = std::time::Instant::now();
     for (x, y) in plane_size {
-        faces[Face::ZPos as usize][plane_size.c1d(x, y)] &= !(solids[plane_size.c1d(x, y)] >> 1);
-        faces[Face::ZNeg as usize][plane_size.c1d(x, y)] &= !(solids[plane_size.c1d(x, y)] << 1);
+        let zpos_neigh = if let Some(neigh) = &neighbouring_solids[Face::ZPos as usize] { !(neigh[plane_size.c1d(x, y)] << 31) } else { !(1u32 << 31) };
+        faces[Face::ZPos as usize][plane_size.c1d(x, y)] &= !(solids[plane_size.c1d(x, y)] >> 1) & zpos_neigh;
+
+        let zneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::ZNeg as usize] { !(neigh[plane_size.c1d(x, y)] << 31) } else { !1u32 };
+        faces[Face::ZNeg as usize][plane_size.c1d(x, y)] &= !(solids[plane_size.c1d(x, y)] << 1) & zneg_neigh;
 
         if x > 0 {
             faces[Face::XNeg as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x - 1, y)];
+        } else {
+            let xneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::XNeg as usize] { !neigh[plane_size.c1d(L1_SIZE_BL.x - 1, y)] } else { 0u32 };
+            faces[Face::XNeg as usize][plane_size.c1d(x, y)] &= xneg_neigh;
         }
         if x < L1_SIZE_BL.x - 1 {
             faces[Face::XPos as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x + 1, y)];
+        } else {
+            let xpos_neigh = if let Some(neigh) = &neighbouring_solids[Face::XPos as usize] { !neigh[plane_size.c1d(0, y)] } else { 0u32 };
+            faces[Face::XPos as usize][plane_size.c1d(x, y)] &= xpos_neigh;
         }
 
         if y > 0 {
             faces[Face::YNeg as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x, y - 1)];
+        } else {
+            let yneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::YNeg as usize] { !neigh[plane_size.c1d(x, L1_SIZE_BL.y - 1)] } else { 0u32 };
+            faces[Face::YNeg as usize][plane_size.c1d(x, y)] &= yneg_neigh;
         }
         if y < L1_SIZE_BL.y - 1 {
             faces[Face::YPos as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x, y + 1)];
+        } else {
+            let ypos_neigh = if let Some(neigh) = &neighbouring_solids[Face::YPos as usize] { !neigh[plane_size.c1d(x, 0)] } else { 0u32 };
+            faces[Face::YPos as usize][plane_size.c1d(x, y)] &= ypos_neigh;
         }
     }
     println!("finding exposed faces took {:?}", t1.elapsed());

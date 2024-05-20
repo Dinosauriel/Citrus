@@ -306,7 +306,7 @@ impl<'a> World<'a> {
                             let z_offset = l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
     
                             let start = time::Instant::now();
-                            let (vertices, indices) = meshing::mesh_l1_segment(l1, &[None, None, None, None, None, None], 
+                            let (vertices, indices) = meshing::mesh_l1_segment(l1, [None, None, None, None, None, None], 
                                 Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
                             println!("mesh_l1_segment took {:?}", start.elapsed());
 
