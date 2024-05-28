@@ -10,8 +10,6 @@ use citrus::{
     controls::*,
     world::{
         *,
-        size::*,
-        object::*,
         block::*,
     },
     graphics::{

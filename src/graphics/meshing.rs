@@ -41,16 +41,16 @@ pub fn mesh_l1_segment(seg: &L1Segment, neighbours: [Option<&L1Segment>; 6], pos
     let solids = l1_solids(seg);
     let neighbouring_solids = neighbours.map(|opt| opt.map_or(None, |neigh| Some(l1_solids(neigh))));
     let plane_size = Size2D { x: L1_SIZE_BL.x, y: L1_SIZE_BL.y };
-    
     // bit x, y, z indicates whether or not voxel x, y, z is exposed in what direction
     let mut faces = vec![solids.clone(); Face::all().len()];
+    println!("constructing bitmaps took {:?}", t0.elapsed());
     
     let t1 = std::time::Instant::now();
     for (x, y) in plane_size {
         let zpos_neigh = if let Some(neigh) = &neighbouring_solids[Face::ZPos as usize] { !(neigh[plane_size.c1d(x, y)] << 31) } else { !(1u32 << 31) };
         faces[Face::ZPos as usize][plane_size.c1d(x, y)] &= !(solids[plane_size.c1d(x, y)] >> 1) & zpos_neigh;
 
-        let zneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::ZNeg as usize] { !(neigh[plane_size.c1d(x, y)] << 31) } else { !1u32 };
+        let zneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::ZNeg as usize] { !(neigh[plane_size.c1d(x, y)] >> 31) } else { !1u32 };
         faces[Face::ZNeg as usize][plane_size.c1d(x, y)] &= !(solids[plane_size.c1d(x, y)] << 1) & zneg_neigh;
 
         if x > 0 {

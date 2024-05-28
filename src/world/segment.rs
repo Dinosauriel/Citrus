@@ -5,7 +5,7 @@ pub const L1_SIZE_BITS: u64 = 5;
 pub const L1_SIZE: Size3D = Size3D { x: 1 << L1_SIZE_BITS, y: 1 << L1_SIZE_BITS, z: 1 << L1_SIZE_BITS };
 pub const L1_SIZE_BL: Size3D = L1_SIZE;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct L1Segment {
     pub blocks: Vec<BlockType>,
 }

@@ -178,7 +178,7 @@ impl ICoords {
         (x, y, z)
     }
 
-    /// coordinates of the L2 segment that contains self
+    /// coordinates of the L2 segment (within its parent L3) that contains self
     pub fn l2_coords(&self) -> (u64, u64, u64) {
         let x = self.x.div_euclid(L2_SIZE_BL.x as i64).rem_euclid(L3_SIZE.x as i64) as u64;
         let y = self.y.div_euclid(L2_SIZE_BL.y as i64).rem_euclid(L3_SIZE.y as i64) as u64;
@@ -186,7 +186,7 @@ impl ICoords {
         (x, y, z)
     }
 
-    /// coordinates of the L1 segment that contains self
+    /// coordinates of the L1 segment (within its parent L2) that contains self
     pub fn l1_coords(&self) -> (u64, u64, u64) {
         let x = self.x.div_euclid(L1_SIZE_BL.x as i64).rem_euclid(L2_SIZE.x as i64) as u64;
         let y = self.y.div_euclid(L1_SIZE_BL.y as i64).rem_euclid(L2_SIZE.y as i64) as u64;
@@ -217,8 +217,8 @@ impl<'a> World<'a> {
             seed: 12,
         };
 
-        // for (l1x, l1y, l1z) in L2_SIZE {
-        for (l1x, l1y, l1z) in [(0, 0, 0)] {
+        for (l1x, l1y, l1z) in (Size3D {x: 2, y: 2, z: 2}) {
+        // for (l1x, l1y, l1z) in [(0, 0, 0)] {
             w.generate_l1_segment(ICoords::new((l1x * L1_SIZE_BL.x) as i64, (l1y * L1_SIZE_BL.y) as i64, (l1z * L1_SIZE_BL.z) as i64));
         }
 
@@ -239,8 +239,8 @@ impl<'a> World<'a> {
 
     fn l2_segment(&self, coords: ICoords) -> Option<&L2Segment> {
         if let Some(l3_seg) = self.l3_segment(coords) {
-            let (l2x, l2y, l2z) = coords.l3_coords();
-            return l3_seg.sub_segments[L2_SIZE.c1d(l2x as u64, l2y as u64, l2z as u64) as usize].as_ref()
+            let (l2x, l2y, l2z) = coords.l2_coords();
+            return l3_seg.sub_segments[L3_SIZE.c1d(l2x, l2y, l2z) as usize].as_ref();
         }
 
         None
@@ -249,11 +249,21 @@ impl<'a> World<'a> {
     fn create_or_get_l2(&mut self, coords: ICoords) -> &mut L2Segment {
         let l3_seg = self.create_or_get_l3(coords);
         let (l2x, l2y, l2z) = coords.l2_coords();
-        if l3_seg.sub_segments[L2_SIZE.c1d(l2x, l2y, l2z) as usize].is_none() {
-            l3_seg.sub_segments[L2_SIZE.c1d(l2x, l2y, l2z) as usize] = Some(L2Segment::default());
+        if l3_seg.sub_segments[L3_SIZE.c1d(l2x, l2y, l2z) as usize].is_none() {
+            l3_seg.sub_segments[L3_SIZE.c1d(l2x, l2y, l2z) as usize] = Some(L2Segment::default());
         }
 
-        l3_seg.sub_segments[L2_SIZE.c1d(l2x, l2y, l2z) as usize].as_mut().unwrap()
+        l3_seg.sub_segments[L3_SIZE.c1d(l2x, l2y, l2z) as usize].as_mut().unwrap()
+    }
+
+    fn l1_segment(&self, coords: ICoords) -> Option<&L1Segment> {
+        if let Some(l2_seg) = self.l2_segment(coords) {
+            let (l1x, l1y, l1z) = coords.l1_coords();
+            println!("coords {:?} have l1_coords {l1x}, {l1y}, {l1z}", coords);
+            return l2_seg.sub_segments[L2_SIZE.c1d(l1x, l1y, l1z) as usize].as_ref();
+        }
+
+        None
     }
 
     fn create_or_get_l1(&mut self, coords: ICoords) -> &mut L1Segment {
@@ -306,7 +316,14 @@ impl<'a> World<'a> {
                             let z_offset = l2z * L2_SIZE_BL.z + l1z * L1_SIZE_BL.z;
     
                             let start = time::Instant::now();
-                            let (vertices, indices) = meshing::mesh_l1_segment(l1, [None, None, None, None, None, None], 
+                            let (vertices, indices) = meshing::mesh_l1_segment(l1, 
+                                [
+                                    self.l1_segment(ICoords::new((l1x as i64 + 1) * L1_SIZE.x as i64, l1y as i64 * L1_SIZE.y as i64, l1z as i64 * L1_SIZE.z as i64)),
+                                    self.l1_segment(ICoords::new((l1x as i64 - 1) * L1_SIZE.x as i64, l1y as i64 * L1_SIZE.y as i64, l1z as i64 * L1_SIZE.z as i64)),
+                                    self.l1_segment(ICoords::new(l1x as i64 * L1_SIZE.x as i64, (l1y as i64 + 1) * L1_SIZE.y as i64, l1z as i64 * L1_SIZE.z as i64)),
+                                    self.l1_segment(ICoords::new(l1x as i64 * L1_SIZE.x as i64, (l1y as i64 - 1) * L1_SIZE.y as i64, l1z as i64 * L1_SIZE.z as i64)),
+                                    self.l1_segment(ICoords::new(l1x as i64 * L1_SIZE.x as i64, l1y as i64 * L1_SIZE.y as i64, (l1z as i64 + 1) * L1_SIZE.z as i64)),
+                                    self.l1_segment(ICoords::new(l1x as i64 * L1_SIZE.x as i64, l1y as i64 * L1_SIZE.y as i64, (l1z as i64 - 1) * L1_SIZE.z as i64))], 
                                 Vec3::new(x_offset as f32, y_offset as f32, z_offset as f32));
                             println!("mesh_l1_segment took {:?}", start.elapsed());
 
