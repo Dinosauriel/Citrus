@@ -1,4 +1,5 @@
-# Citrus!
+# Citrus
+Having fun building a game using Rust and Vulkan!
 ## Getting Started (Windows):
 Dependencies:
 - Rust (1.77.2)
