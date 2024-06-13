@@ -64,16 +64,15 @@ impl<'a> BlockObject<'a> {
         self.position.x = 10. + (((t % 10000) as f32) / 500.).cos();
     }
 
-    fn indices_from_block_list(block_list: &Vec<(u64, u64, u64)>, size: &Size3D, blocks: &Vec<BlockType>) -> Vec<u32> {
+    fn indices_from_block_list(block_list: &Vec<ICoords>, size: &Size3D, blocks: &Vec<BlockType>) -> Vec<u32> {
         let mut indices = vec![];
 
-        for (i, (x, y, z)) in block_list.into_iter().enumerate() {
-            let c = ICoords {x: *x as i64, y: *y as i64, z: *z as i64};
+        for (i, c) in block_list.into_iter().enumerate() {
             for face in Face::all() {
                 // coordinates of the neighbouring block
-                let c_p = c + face.numeric();
+                let c_p = *c + face.numeric();
                 if size.contains(c_p) 
-                    && blocks[size.c1d(c_p.x as u64, c_p.y as u64, c_p.z as u64) as usize] != BlockType::NoBlock {
+                    && blocks[size.c1d(c_p) as usize] != BlockType::NoBlock {
                         // skip these indices if the neighbouring coordinates are not empty
                         continue;
                 }
@@ -86,20 +85,20 @@ impl<'a> BlockObject<'a> {
         indices
     }
 
-    fn vertices_from_block_list(block_list: &Vec<(u64, u64, u64)>, position: &Vec3) -> Vec<ColoredVertex> {
+    fn vertices_from_block_list(block_list: &Vec<ICoords>, position: &Vec3) -> Vec<ColoredVertex> {
         let mut vertices = vec![ColoredVertex::default(); block_list.len() * 8];
         let mut rng = thread_rng();
 
-        for (i, (x, y, z)) in block_list.into_iter().enumerate() {
+        for (i, c) in block_list.into_iter().enumerate() {
             let color: [f32; 4] = [rng.gen(), rng.gen(), rng.gen(), 0.8];
             // let color: [f32; 4] = [1., 1., 0., 0.8];
 
             for (j, [dx, dy, dz]) in BL_VERTICES.iter().enumerate() {
                 let vertex = ColoredVertex {
                     pos: [
-                        (x + dx) as f32 + position.x,
-                        (y + dy) as f32 + position.y,
-                        (z + dz) as f32 + position.z,
+                        (c.x as u64 + dx) as f32 + position.x,
+                        (c.y as u64 + dy) as f32 + position.y,
+                        (c.z as u64 + dz) as f32 + position.z,
                         1.0
                     ],
                     color,
@@ -111,8 +110,8 @@ impl<'a> BlockObject<'a> {
     }
 
     // a list of coordinates of blocks that are not NoBlock
-    fn enlist_blocks(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<(u64, u64, u64)> {
-        size.into_iter().filter(|(x, y, z)| blocks[size.c1d(*x, *y, *z) as usize] != BlockType::NoBlock).collect()
+    fn enlist_blocks(blocks: &Vec<BlockType>, size: &Size3D) -> Vec<ICoords> {
+        size.into_iter().filter(|c| blocks[size.c1d(*c) as usize] != BlockType::NoBlock).collect()
     }
 }
 

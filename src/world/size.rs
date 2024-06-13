@@ -7,7 +7,7 @@ pub struct Size3DIterator {
 }
 
 impl Iterator for Size3DIterator {
-    type Item = (u64, u64, u64);
+    type Item = ICoords;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.i >= self.size.volume() {
@@ -26,11 +26,17 @@ pub struct Size3D {
 }
 
 impl IntoIterator for Size3D {
-    type Item = (u64, u64, u64);
+    type Item = ICoords;
     type IntoIter = Size3DIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         Size3DIterator { size: self, i: 0 }
+    }
+}
+
+impl Into<ICoords> for Size3D {
+    fn into(self) -> ICoords {
+        ICoords {x: self.x as i64, y: self.y as i64, z: self.z as i64}
     }
 }
 
@@ -39,18 +45,9 @@ impl Size3D {
         self.x * self.y * self.z
     }
 
-    pub fn num_vertices(&self) -> u64 {
-        (self.x + 1) * (self.y + 1) * (self.z + 1)
-    }
-
     /// maps 3d coordinates to a 1d index
-    pub fn c1d(&self, x: u64, y: u64, z: u64) -> u64 {
-        self.y * self.z * x + self.z * y + z
-    }
-
-    /// maps 3d coordinates to a 1d vertex index
-    pub fn vc1d(&self, x: u64, y: u64, z: u64) -> u64 {
-        (self.y + 1) * (self.z + 1) * x + (self.z + 1) * y + z
+    pub fn c1d(&self, coords: ICoords) -> u64 {
+        self.y * self.z * coords.x as u64 + self.z * coords.y as u64 + coords.z as u64
     }
 
     pub fn contains(&self, c: ICoords) -> bool {
@@ -60,11 +57,11 @@ impl Size3D {
     }
 
     /// maps 1d coordinate to 3d indices
-    pub fn c3d(&self, i: u64) -> (u64, u64, u64) {
+    pub fn c3d(&self, i: u64) -> ICoords {
         let x = (i / (self.y * self.z)) % self.x;
         let y = (i / self.z) % self.y;
         let z = i % self.z;
-        (x, y, z)
+        ICoords {x: x as i64, y: y as i64, z: z as i64}
     }
 }
 
@@ -80,8 +77,8 @@ impl Size2D {
     }
 
     /// maps 2d coordinates to a 1d index
-    pub fn c1d(&self, x: u64, y: u64) -> usize {
-        (self.y * x + y) as usize
+    pub fn c1d(&self, x: i64, y: i64) -> usize {
+        (self.y * x as u64 + y as u64) as usize
     }
 }
 
@@ -91,7 +88,7 @@ pub struct Size2DIterator {
 }
 
 impl Iterator for Size2DIterator {
-    type Item = (u64, u64);
+    type Item = (i64, i64);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.i >= self.size.area() {
@@ -102,12 +99,12 @@ impl Iterator for Size2DIterator {
 
         self.i += 1;
 
-        Some((x, y))
+        Some((x as i64, y as i64))
     }
 }
 
 impl IntoIterator for Size2D {
-    type Item = (u64, u64);
+    type Item = (i64, i64);
     type IntoIter = Size2DIterator;
 
     fn into_iter(self) -> Self::IntoIter {

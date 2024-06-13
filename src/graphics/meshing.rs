@@ -56,10 +56,10 @@ pub fn mesh_l1_segment(seg: &L1Segment, neighbours: [Option<&L1Segment>; 6], pos
         if x > 0 {
             faces[Face::XNeg as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x - 1, y)];
         } else {
-            let xneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::XNeg as usize] { !neigh[plane_size.c1d(L1_SIZE_BL.x - 1, y)] } else { 0u32 };
+            let xneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::XNeg as usize] { !neigh[plane_size.c1d(L1_SIZE_BL.x as i64 - 1, y)] } else { 0u32 };
             faces[Face::XNeg as usize][plane_size.c1d(x, y)] &= xneg_neigh;
         }
-        if x < L1_SIZE_BL.x - 1 {
+        if x < L1_SIZE_BL.x as i64 - 1 {
             faces[Face::XPos as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x + 1, y)];
         } else {
             let xpos_neigh = if let Some(neigh) = &neighbouring_solids[Face::XPos as usize] { !neigh[plane_size.c1d(0, y)] } else { 0u32 };
@@ -69,10 +69,10 @@ pub fn mesh_l1_segment(seg: &L1Segment, neighbours: [Option<&L1Segment>; 6], pos
         if y > 0 {
             faces[Face::YNeg as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x, y - 1)];
         } else {
-            let yneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::YNeg as usize] { !neigh[plane_size.c1d(x, L1_SIZE_BL.y - 1)] } else { 0u32 };
+            let yneg_neigh = if let Some(neigh) = &neighbouring_solids[Face::YNeg as usize] { !neigh[plane_size.c1d(x, L1_SIZE_BL.y as i64 - 1)] } else { 0u32 };
             faces[Face::YNeg as usize][plane_size.c1d(x, y)] &= yneg_neigh;
         }
-        if y < L1_SIZE_BL.y - 1 {
+        if y < L1_SIZE_BL.y as i64 - 1 {
             faces[Face::YPos as usize][plane_size.c1d(x, y)] &= !solids[plane_size.c1d(x, y + 1)];
         } else {
             let ypos_neigh = if let Some(neigh) = &neighbouring_solids[Face::YPos as usize] { !neigh[plane_size.c1d(x, 0)] } else { 0u32 };
@@ -84,10 +84,10 @@ pub fn mesh_l1_segment(seg: &L1Segment, neighbours: [Option<&L1Segment>; 6], pos
     let t2 = std::time::Instant::now();
     // now we know which faces are exposed
     let mut indices = Vec::<u32>::new();
-    for (x, y, z) in L1_SIZE_BL {
-        let v = 8 * L1_SIZE_BL.c1d(x, y, z);
+    for coords in L1_SIZE_BL {
+        let v = 8 * L1_SIZE_BL.c1d(coords);
         for face in Face::all() {
-            if faces[face as usize][plane_size.c1d(x, y)] & (1u32 << z) != 0 {
+            if faces[face as usize][plane_size.c1d(coords.x, coords.y)] & (1u32 << coords.z) != 0 {
                 indices.extend_from_slice(&face.indices().map(|idx| {v as u32 + idx}));
             }
         }
@@ -123,12 +123,12 @@ pub fn mesh_l1_segment(seg: &L1Segment, neighbours: [Option<&L1Segment>; 6], pos
 
     let vertices = (0 .. 8 * L1_SIZE_BL.volume() as usize).filter(|&i| vertex_used[i]).map(|i| {
         let [dx, dy, dz] = BL_VERTICES[i % 8];
-        let (x, y, z) = L1_SIZE_BL.c3d(i as u64 / 8);
+        let coords = L1_SIZE_BL.c3d(i as u64 / 8);
         ColoredVertex {
             pos: [
-                (x + dx) as f32 + position.x,
-                (y + dy) as f32 + position.y,
-                (z + dz) as f32 + position.z,
+                (coords.x as u64 + dx) as f32 + position.x,
+                (coords.y as u64 + dy) as f32 + position.y,
+                (coords.z as u64 + dz) as f32 + position.z,
                 1.0
             ],
             color: colors[(i as usize / 8) % colors.len()],
