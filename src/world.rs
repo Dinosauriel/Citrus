@@ -10,8 +10,8 @@ use std::{
     collections::HashMap};
 use noise::{NoiseFn, Simplex};
 use glam::Vec3;
-use crate::graphics::graphics_object::GraphicsObject;
 use crate::graphics::meshing;
+use crate::profiler::*;
 use object::*;
 use size::*;
 use segment::*;
@@ -203,6 +203,7 @@ impl<'a> World<'a> {
 
     /// * `coords` - coordinates of the 0 0 0 block in the desired l1_segment
     fn generate_l1_segment(&mut self, coords: ICoords) {
+        p_start("generate_l1_segment");
         let noise = Simplex::new(self.seed);
         let l1_seg = self.create_or_get_l1(coords);
 
@@ -224,6 +225,7 @@ impl<'a> World<'a> {
             dur_setb += b.elapsed();
         }
 
+        p_end("generate_l1_segment");
         println!("noise took {:?} on average", dur_noise.div_f64(L1_SIZE_BL.volume() as f64));
         println!("setb took {:?} on average", dur_setb.div_f64(L1_SIZE_BL.volume() as f64));
         println!("gen_l1_segment took {:?}", start.elapsed());
@@ -233,7 +235,6 @@ impl<'a> World<'a> {
         for l3 in self.terrain.values() {
             for l2c in L3_SIZE {
                 if let Some(l2) = &l3.sub_segments[L3_SIZE.c1d(l2c) as usize] {
-    
                     for l1c in L2_SIZE {
                         if let Some(l1) = &l2.sub_segments[L2_SIZE.c1d(l1c) as usize] {
                             let offset = l2c * L2_SIZE_BL.into() + l1c * L1_SIZE_BL.into();

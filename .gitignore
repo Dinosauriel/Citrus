@@ -3,3 +3,5 @@ target
 #compiled shaders
 **.spv
 .cargo
+profiles/*
+!profiles/.gitkeep

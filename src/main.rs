@@ -5,6 +5,7 @@ use glam::Mat4;
 use glam::Vec2;
 use ash::vk;
 use citrus::{
+    profiler::*,
     config,
     ui,
     controls::*,
@@ -220,24 +221,6 @@ fn main() {
 
         let mut blocks = vec![BlockType::Grass; 8];
         blocks[0] = BlockType::NoBlock;
-        // let mut object1 = BlockObject::new(&g_state.device, &g_state.device_memory_properties, &Size3D {x: 2, y: 2, z: 2}, &glam::Vec3::new(10., 20., 0.), &blocks);
-        // object1.is_ticking = true;
-        // world.objects.push(object1);
-
-        // let triangle = Triangle::new(&g_state.device, &g_state.device_memory_properties,
-        //     &ColoredVertex {
-        //         pos: [0., 2., 0., 1.],
-        //         color: [1., 0., 1., 1.],
-        //     },
-        //     &ColoredVertex {
-        //         pos: [0., -2., 0., 1.],
-        //         color: [1., 0., 0., 1.],
-        //     },
-        //     &ColoredVertex {
-        //         pos: [1., 0., 0., 0.],
-        //         color: [1., 0., 0., 1.],
-        //     },
-        // );
 
         // ++++++++++++++
         let matrix_buffer = Buffer::new(
@@ -485,4 +468,5 @@ fn main() {
         }
         g_state.device.destroy_render_pass(render_pass, None);
     }
+    p_summary();
 }

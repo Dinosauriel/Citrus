@@ -11,11 +11,13 @@ pub mod graphics {
     pub mod graphics_state;
     pub mod meshing;
     pub mod pipeline;
+    pub mod scanner;
     pub mod buffer;
     pub mod texture;
     pub mod vertex;
     pub mod geometry;
 }
+pub mod profiler;
 pub mod world;
 pub mod config;
 pub mod ui {
