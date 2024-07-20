@@ -1,8 +1,19 @@
 use std::io;
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::TryRecvError;
+use std::io::Write;
+use std::sync::mpsc::{
+    self,
+    Receiver,
+    TryRecvError,
+};
 use std::thread;
+
+pub fn cl_start() {
+}
+
+pub fn cl_println(s: &str) {
+    let mut lock = io::stdout().lock();
+    lock.write(b"line").unwrap();
+}
 
 // fetch all the lines from the stdin channel and return them
 pub fn commands(receiver: &Receiver<String>) -> Vec<String> {

@@ -5,9 +5,7 @@ pub mod ray;
 pub mod size;
 pub mod block;
 
-use std::{
-    time,
-    collections::HashMap};
+use std::collections::HashMap;
 use noise::{NoiseFn, Simplex};
 use glam::Vec3;
 use crate::graphics::meshing;
@@ -207,28 +205,18 @@ impl<'a> World<'a> {
         let noise = Simplex::new(self.seed);
         let l1_seg = self.create_or_get_l1(coords);
 
-        let mut dur_noise = time::Duration::ZERO;
-        let mut dur_setb = time::Duration::ZERO;
-        let start = time::Instant::now();
-
         for delta in L1_SIZE_BL {
-            let a = time::Instant::now();
+            p_start("noise.get");
             let v = noise.get([
                 (coords.x + delta.x) as f64 / 50.,
                 (coords.y + delta.y) as f64 / 50.,
                 (coords.z + delta.z) as f64 / 50.]);
-            dur_noise += a.elapsed();
-            let b = time::Instant::now();
+            p_end("noise.get");
             if v > 0. {
                 l1_seg.blocks[L1_SIZE_BL.c1d(delta) as usize] = BlockType::Grass;
             }
-            dur_setb += b.elapsed();
         }
-
         p_end("generate_l1_segment");
-        println!("noise took {:?} on average", dur_noise.div_f64(L1_SIZE_BL.volume() as f64));
-        println!("setb took {:?} on average", dur_setb.div_f64(L1_SIZE_BL.volume() as f64));
-        println!("gen_l1_segment took {:?}", start.elapsed());
     }
 
     unsafe fn generate_graphics_objects(&mut self, device: &'a ash::Device, device_memory_properties: &ash::vk::PhysicalDeviceMemoryProperties) {
@@ -239,7 +227,7 @@ impl<'a> World<'a> {
                         if let Some(l1) = &l2.sub_segments[L2_SIZE.c1d(l1c) as usize] {
                             let offset = l2c * L2_SIZE_BL.into() + l1c * L1_SIZE_BL.into();
 
-                            let start = time::Instant::now();
+                            p_start("mesh_l1_segment");
                             let (vertices, indices) = meshing::mesh_l1_segment(l1, 
                                 [
                                     self.l1_segment((l1c + ICoords::new(1, 0, 0)) * L1_SIZE.into()),
@@ -249,7 +237,7 @@ impl<'a> World<'a> {
                                     self.l1_segment((l1c + ICoords::new(0, 0, 1)) * L1_SIZE.into()),
                                     self.l1_segment((l1c + ICoords::new(0, 0, -1)) * L1_SIZE.into())], 
                                 Vec3::new(offset.x as f32, offset.y as f32, offset.z as f32));
-                            println!("mesh_l1_segment took {:?}", start.elapsed());
+                            p_end("mesh_l1_segment");
 
                             let o = RawObject::new(device, device_memory_properties, &vertices, &indices);
                             self.objects.push(o);
