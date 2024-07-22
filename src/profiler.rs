@@ -2,6 +2,7 @@ use std::fs::File;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Write;
+use std::ops::Mul;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -66,6 +67,27 @@ pub fn p_graph(granularity: Duration) {
         file.write(format!("te = {:?}\n", te).as_bytes()).unwrap();
         file.write(format!("granularity = {granularity:?}\n").as_bytes()).unwrap();
         file.write(format!("number of timesteps = {n}\n").as_bytes()).unwrap();
+
+        let tick_width: usize = 20;
+        file.write(" ".repeat(name_length + 1).as_bytes()).unwrap();
+        for i in 0..n.div_ceil(tick_width) {
+            let dstring = format!("{:?}", granularity.mul((i * tick_width) as u32));
+            file.write(dstring.as_bytes()).unwrap();
+            file.write(" ".repeat(tick_width - dstring.len()).as_bytes()).unwrap();
+        }
+        file.write(b"\n").unwrap();
+
+
+        file.write(" ".repeat(name_length + 1).as_bytes()).unwrap();
+        for i in 0..n {
+            if i % tick_width == 0 {
+                file.write(b"|").unwrap();
+            } else {
+                file.write(b" ").unwrap();
+            }
+        }
+        file.write(b"\n\n").unwrap();
+
         for (name, runs) in procedures {
             file.write(format!("{name}").as_bytes()).unwrap();
             file.write(" ".repeat(name_length + 1 - name.len()).as_bytes()).unwrap();
@@ -78,26 +100,19 @@ pub fn p_graph(granularity: Duration) {
                     break;
                 }
                 
-                if runs[i].start < t {
-                    if runs[i].end < t_next {
-                        file.write(b">").unwrap();
-                        while i < runs.len() && runs[i].end < t_next {
-                            i += 1;
-                        }
-                    } else {
-                        file.write(b"-").unwrap();
-                    }
-                } else if runs[i].start < t_next {
-                    if runs[i].end < t_next {
-                        file.write(b"~").unwrap();
-                        while i < runs.len() && runs[i].end < t_next {
-                            i += 1;
-                        }
-                    } else {
-                        file.write(b"|").unwrap();
+                if runs[i].end < t_next {
+                    file.write(b">").unwrap();
+                    while i < runs.len() && runs[i].end < t_next {
+                        i += 1;
                     }
                 } else {
-                    file.write(b" ").unwrap();
+                    if runs[i].start < t {
+                        file.write(b"-").unwrap();
+                    } else if runs[i].start < t_next {
+                        file.write(b"|").unwrap();
+                    } else {
+                        file.write(b" ").unwrap();
+                    }
                 }
                 t += granularity;
             }
