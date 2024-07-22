@@ -5,8 +5,19 @@ use std::io::Write;
 use std::thread;
 use std::time::{Duration, Instant};
 
+struct Run {
+    start: Instant,
+    end: Instant,
+}
+
+impl Run {
+    fn duration(&self) -> Duration {
+        self.end.duration_since(self.start)
+    }
+}
+
 thread_local! {
-    static PROCEDURES: RefCell<HashMap<String, Vec<Duration>>> = RefCell::new(HashMap::from([]));
+    static PROCEDURES: RefCell<HashMap<String, Vec<Run>>> = RefCell::new(HashMap::from([]));
     static START: RefCell<HashMap<String, Instant>> = RefCell::new(HashMap::from([]));
 }
 
@@ -27,11 +38,70 @@ pub fn p_end(name: &str) {
     START.with_borrow_mut(|map| {
         if let Some(&start) = map.get(&name_s) {
             map.remove(&name_s);
-            let d = Instant::now().duration_since(start);
+            let end = Instant::now();
 
             PROCEDURES.with_borrow_mut(|pmap| {
-                pmap.get_mut(&name_s).unwrap().push(d);
+                pmap.get_mut(&name_s).unwrap().push(Run { start, end });
             });
+        }
+    });
+}
+
+pub fn p_graph(granularity: Duration) {
+    PROCEDURES.with_borrow_mut(|procedures| {
+        if procedures.len() == 0 {
+            return;
+        }
+        let t0 = procedures.iter().map(|(_, runs)| { runs.first().unwrap().start }).min().unwrap();
+        let te = procedures.iter().map(|(_, runs)| { runs.last().unwrap().end }).max().unwrap();
+        // number of time steps
+        let n = te.duration_since(t0).as_nanos().div_ceil(granularity.as_nanos()) as usize;
+
+        let name_length = procedures.iter().map(|(name, _)| { name.len() }).max().unwrap_or(0);
+
+        let thread = thread::current();
+        let mut file = File::create(format!("profiles/profiler-graph-{}-{:?}.txt", thread.name().unwrap(), thread.id())).unwrap();
+
+        file.write(format!("t0 = {:?}\n", t0).as_bytes()).unwrap();
+        file.write(format!("te = {:?}\n", te).as_bytes()).unwrap();
+        file.write(format!("granularity = {granularity:?}\n").as_bytes()).unwrap();
+        file.write(format!("number of timesteps = {n}\n").as_bytes()).unwrap();
+        for (name, runs) in procedures {
+            file.write(format!("{name}").as_bytes()).unwrap();
+            file.write(" ".repeat(name_length + 1 - name.len()).as_bytes()).unwrap();
+            let mut t = t0;
+
+            let mut i: usize = 0;
+            while t < te {
+                let t_next = t + granularity;
+                if i >= runs.len() {
+                    break;
+                }
+                
+                if runs[i].start < t {
+                    if runs[i].end < t_next {
+                        file.write(b">").unwrap();
+                        while i < runs.len() && runs[i].end < t_next {
+                            i += 1;
+                        }
+                    } else {
+                        file.write(b"-").unwrap();
+                    }
+                } else if runs[i].start < t_next {
+                    if runs[i].end < t_next {
+                        file.write(b"~").unwrap();
+                        while i < runs.len() && runs[i].end < t_next {
+                            i += 1;
+                        }
+                    } else {
+                        file.write(b"|").unwrap();
+                    }
+                } else {
+                    file.write(b" ").unwrap();
+                }
+                t += granularity;
+            }
+            file.write(b"\n").unwrap();
         }
     });
 }
@@ -40,16 +110,16 @@ pub fn p_end(name: &str) {
 pub fn p_summary() {
     PROCEDURES.with_borrow_mut(|map| {
         let mut map: Vec<_> = map.iter().collect();
-        map.sort();
+        map.sort_by(|(k1, _), (k2, _)| { k1.cmp(k2) });
         let thread = thread::current();
         let mut file = File::create(format!("profiles/profiler-{}-{:?}.csv", thread.name().unwrap(), thread.id())).unwrap();
         file.write(b"name, n, min, max, avg, p50, p95, total\n").unwrap();
-        for (name, durations) in map {
-            let n = durations.len();
-            let mut d_sorted = durations.clone();
-            d_sorted.sort();
-            let p50 = d_sorted[n / 2];
-            let p95 = d_sorted[(n as f64 * 0.95) as usize];
+        for (name, runs) in map {
+            let n = runs.len();
+            let mut durations: Vec<_> = runs.iter().map(Run::duration).collect();
+            durations.sort();
+            let p50 = durations[n / 2];
+            let p95 = durations[(n as f64 * 0.95) as usize];
             let total = durations.iter().sum::<Duration>();
             let avg = total / durations.len() as u32;
             let min = durations.iter().min().unwrap();

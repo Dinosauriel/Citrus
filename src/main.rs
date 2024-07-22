@@ -1,6 +1,7 @@
 use std::default::Default;
 use std::mem;
 use std::time;
+use std::time::Duration;
 use glam::Mat4;
 use glam::Vec2;
 use ash::vk;
@@ -469,4 +470,5 @@ fn main() {
         g_state.device.destroy_render_pass(render_pass, None);
     }
     p_summary();
+    p_graph(Duration::from_millis(1));
 }
