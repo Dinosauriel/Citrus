@@ -66,6 +66,7 @@ pub fn p_graph(granularity: Duration) {
         file.write(format!("t0 = {:?}\n", t0).as_bytes()).unwrap();
         file.write(format!("te = {:?}\n", te).as_bytes()).unwrap();
         file.write(format!("granularity = {granularity:?}\n").as_bytes()).unwrap();
+        file.write(format!("time passed = {:?}\n", te.duration_since(t0)).as_bytes()).unwrap();
         file.write(format!("number of timesteps = {n}\n").as_bytes()).unwrap();
 
         let tick_width: usize = 20;

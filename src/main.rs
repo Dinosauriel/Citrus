@@ -470,5 +470,5 @@ fn main() {
         g_state.device.destroy_render_pass(render_pass, None);
     }
     p_summary();
-    p_graph(Duration::from_millis(1));
+    p_graph(Duration::from_millis(10));
 }

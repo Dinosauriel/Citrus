@@ -6,7 +6,7 @@ pub mod size;
 pub mod block;
 
 use std::collections::HashMap;
-use noise::{NoiseFn, Simplex};
+use noise::{NoiseFn, Perlin};
 use glam::Vec3;
 use crate::graphics::meshing;
 use crate::profiler::*;
@@ -202,7 +202,7 @@ impl<'a> World<'a> {
     /// * `coords` - coordinates of the 0 0 0 block in the desired l1_segment
     fn generate_l1_segment(&mut self, coords: ICoords) {
         p_start("generate_l1_segment");
-        let noise = Simplex::new(self.seed);
+        let noise = Perlin::new(self.seed);
         let l1_seg = self.create_or_get_l1(coords);
 
         for delta in L1_SIZE_BL {
