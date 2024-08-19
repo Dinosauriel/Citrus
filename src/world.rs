@@ -1,4 +1,5 @@
 pub mod segment;
+pub mod noise;
 pub mod icoords;
 pub mod object;
 pub mod ray;
@@ -6,7 +7,7 @@ pub mod size;
 pub mod block;
 
 use std::collections::HashMap;
-use noise::{NoiseFn, Perlin};
+use noise::*;
 use glam::Vec3;
 use crate::graphics::meshing;
 use crate::profiler::*;
@@ -202,15 +203,20 @@ impl<'a> World<'a> {
     /// * `coords` - coordinates of the 0 0 0 block in the desired l1_segment
     fn generate_l1_segment(&mut self, coords: ICoords) {
         p_start("generate_l1_segment");
-        let noise = Perlin::new(self.seed);
+        // let noise = noise::Perlin::new(self.seed);
         let l1_seg = self.create_or_get_l1(coords);
 
         for delta in L1_SIZE_BL {
             p_start("noise.get");
-            let v = noise.get([
-                (coords.x + delta.x) as f64 / 50.,
-                (coords.y + delta.y) as f64 / 50.,
-                (coords.z + delta.z) as f64 / 50.]);
+            let v = perlin(Vec3::new(
+                (coords.x + delta.x) as f32 / 32., 
+                (coords.y + delta.y) as f32 / 32., 
+                (coords.z + delta.z) as f32 / 32.));
+            // let v = noise.get([
+            //     (coords.x + delta.x) as f64 / 50.,
+            //     (coords.y + delta.y) as f64 / 50.,
+            //     (coords.z + delta.z) as f64 / 50.]);
+            // println!("perlin({:?})", v);
             p_end("noise.get");
             if v > 0. {
                 l1_seg.blocks[L1_SIZE_BL.c1d(delta) as usize] = BlockType::Grass;
@@ -239,6 +245,9 @@ impl<'a> World<'a> {
                                 Vec3::new(offset.x as f32, offset.y as f32, offset.z as f32));
                             p_end("mesh_l1_segment");
 
+                            if vertices.len() == 0 || indices.len() == 0 {
+                                continue;
+                            }
                             let o = RawObject::new(device, device_memory_properties, &vertices, &indices);
                             self.objects.push(o);
                         }

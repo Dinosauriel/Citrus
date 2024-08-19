@@ -2,10 +2,21 @@ use crate::profiler::*;
 use std::usize;
 
 use glam::Vec3;
-use rand::{thread_rng, Rng};
+use rand::{
+    thread_rng,
+    Rng
+};
 
-use crate::{graphics::vertex::ColoredVertex, world::{
-    segment::{L1Segment, L1_SIZE_BL}, size::Size2D, Face, BL_VERTICES
+use crate::{
+    graphics::vertex::ColoredVertex,
+    world::{
+        segment::{
+            L1Segment,
+            L1_SIZE_BL
+        },
+    size::Size2D,
+    Face,
+    BL_VERTICES
 }};
 
 

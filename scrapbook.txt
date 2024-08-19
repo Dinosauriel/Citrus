@@ -7,3 +7,6 @@ Bytes per L1SEG: 786K
 Num L1SEG: 8 * 8 * 8 = 512
 
 Bytes Total for L1SEG Vertices: 402’653’184
+
+## Ideas:
+- crossair

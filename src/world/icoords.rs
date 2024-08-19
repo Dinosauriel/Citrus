@@ -1,5 +1,5 @@
 use std::ops::{Add, Mul, Div, Rem};
-
+use glam::Vec3;
 use super::Axis;
 use super::*;
 
@@ -46,6 +46,14 @@ impl ICoords {
 
     pub fn triple(&self) -> (i64, i64, i64) {
         (self.x, self.y, self.z)
+    }
+
+    pub fn vec3(&self) -> Vec3 {
+        Vec3 { x: self.x as f32, y: self.y as f32, z: self.z as f32 }
+    }
+
+    pub fn from_vec3(v: Vec3) -> Self {
+        Self { x: v.x.floor() as i64, y: v.y.floor() as i64, z: v.z.floor() as i64 }
     }
 
     /// for a given world coordinate, find the coordinates of the respective L3, L2 and L1 segments that contain this coordinate
