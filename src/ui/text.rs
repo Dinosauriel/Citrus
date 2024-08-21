@@ -1,6 +1,5 @@
 use std::vec;
 use glam::Vec2;
-use rusttype::point;
 use crate::graphics::buffer::Buffer;
 use crate::graphics::geometry::XDir;
 use crate::graphics::geometry::YDir;
@@ -52,7 +51,7 @@ impl<'a> Text<'a> {
 
         self.length = content.len();
 
-        let glyphs: Vec<_> = font.rt_font.layout(content, font.scale, point(0., font.ascent)).collect();
+        let glyphs: Vec<_> = font.rt_font.layout(content, font.scale, rusttype::point(0., font.ascent)).collect();
 
         let width = glyphs.last().unwrap().position().x + glyphs.last().unwrap().unpositioned().h_metrics().advance_width;
         let x_offset = match anchor {

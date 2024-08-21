@@ -17,6 +17,9 @@ pub mod graphics {
     pub mod vertex;
     pub mod geometry;
 }
+pub mod random {
+    pub mod mt;
+}
 pub mod profiler;
 pub mod world;
 pub mod config;

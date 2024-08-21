@@ -2,6 +2,7 @@ use std::default::Default;
 use std::mem;
 use std::time;
 use std::time::Duration;
+use citrus::random;
 use glam::Mat4;
 use glam::Vec2;
 use ash::vk;
@@ -194,6 +195,11 @@ fn get_hud_ubo() -> HudUBO {
 fn main() {
     unsafe {
         let mut g_state = GraphicState::new(1920, 1080);
+
+        let mut mt = random::mt::Mt19937::new(123);
+        for _ in 0..14 {
+            println!("{}", mt.next());
+        }
 
         let render_pass = render_pass(&g_state);
 
