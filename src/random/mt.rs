@@ -32,7 +32,7 @@ impl Mt19937 {
         mt.state[0] = seed;
         let mut j = seed;
         for i in 1..Self::N {
-            j = Self::F * (j ^ (j >> (Self::W - 2))) + i as u32;
+            j = Self::F.wrapping_mul(j ^ (j >> (Self::W - 2))).wrapping_add(i as u32);
             mt.state[i] = j;
         }
 
