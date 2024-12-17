@@ -58,6 +58,7 @@ unsafe fn create_instance(window: &glfw::PWindow, entry: &ash::Entry) -> ash::In
 
     let mut surface_extensions = ash_window::enumerate_required_extensions(window.display_handle().unwrap().as_raw()).unwrap().to_vec();
     surface_extensions.push(ash::ext::debug_utils::NAME.as_ptr());
+    surface_extensions.push(ash::khr::portability_enumeration::NAME.as_ptr());
 
     let appinfo = vk::ApplicationInfo::default()
         .application_name(app_name)
@@ -68,6 +69,7 @@ unsafe fn create_instance(window: &glfw::PWindow, entry: &ash::Entry) -> ash::In
 
     let create_info = vk::InstanceCreateInfo::default()
         .application_info(&appinfo)
+        .flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR)
         .enabled_layer_names(&layer_names_raw)
         .enabled_extension_names(&surface_extensions);
 
