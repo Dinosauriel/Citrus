@@ -3,6 +3,7 @@ use std::mem;
 use std::time;
 use std::time::Duration;
 use citrus::random;
+use citrus::random::mt::Mt19937;
 use glam::Mat4;
 use glam::Vec2;
 use ash::vk;
@@ -199,6 +200,9 @@ fn main() {
         let mut mt = random::mt::Mt19937::new(123);
         for _ in 0..14 {
             println!("{}", mt.next());
+        }
+        for _ in 0..100 {
+            println!("{}", mt.next_01());
         }
 
         let render_pass = render_pass(&g_state);

@@ -58,4 +58,28 @@ impl Mt19937 {
         y = y ^ ((y << Self::T) & Self::C);
         y ^ (y >> Self::L)
     }
+
+    // single precision float:
+    // 1 sign, 8 exponent, 23 fraction
+    // v = (-1)^sign * 2^(e-127) * 1.fffffff..
+    pub fn next_01(&mut self) -> f32 {
+        let rand_int = self.next();
+        
+        // look at the first 9 bits of `rand_int` to determine the exponent
+        let mut expon: u32 = 126;
+        for i in 0..9 {
+            if (rand_int >> (31 - i)) & 0x1 == 0x1 {
+                expon -= 1;
+            } else {
+                break;
+            }
+        }
+
+        // exponent should be in range [126 - 9, 126]
+        assert!(126 - 9 <= expon && expon <= 126);
+
+        // assemble the f32
+        let mask = 0xff_ff_ff_ff >> 9;
+        f32::from_bits((expon << 23) | (rand_int & mask))
+    }
 }
