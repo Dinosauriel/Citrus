@@ -18,3 +18,6 @@ Run:
 ```
 cargo run
 ```
+
+## Screenshot
+![Screenshot 02.01.2026](/readme/2026-01-02-screenshot.png)
