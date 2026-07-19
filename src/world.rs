@@ -209,9 +209,9 @@ impl<'a> World<'a> {
         for delta in L1_SIZE_BL {
             p_start("noise.get");
             let v = perlin(Vec3::new(
-                (coords.x + delta.x) as f32 / 32., 
+                (coords.x + delta.x) as f32 / 256., 
                 (coords.y + delta.y) as f32 / 32., 
-                (coords.z + delta.z) as f32 / 32.));
+                (coords.z + delta.z) as f32 / 256.));
             // let v = noise.get([
             //     (coords.x + delta.x) as f64 / 50.,
             //     (coords.y + delta.y) as f64 / 50.,
